@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+pymupdf
+firebase-admin
+httpx
+python-dotenv
+pydantic
+aiofiles
+gtts
+requests
