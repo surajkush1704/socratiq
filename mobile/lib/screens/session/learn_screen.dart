@@ -1,63 +1,1643 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
+import '../../models/mcq_model.dart';
+import '../../services/api_service.dart';
+import '../../services/sync_service.dart';
+import '../../services/voice_service.dart';
+import '../../widgets/voice_orb_painter.dart';
+import '../session/result_screen.dart';
 
-class LearnScreen extends StatelessWidget {
-  const LearnScreen({super.key});
+enum VoiceState { idle, listening, thinking, speaking }
+
+class LearnScreen extends StatefulWidget {
+  final ContentModel content;
+  final String mode;
+
+  const LearnScreen({
+    required this.content,
+    required this.mode,
+    super.key,
+  });
+
+  @override
+  State<LearnScreen> createState() => _LearnScreenState();
+}
+
+class _LearnScreenState extends State<LearnScreen>
+    with TickerProviderStateMixin {
+
+  // ── Services ───────────────────────────────────────────────────────────────
+  final _api = ApiService();
+  final _voice = VoiceService();
+
+  // ── Session state ──────────────────────────────────────────────────────────
+  String? _sessionId;
+  bool _sessionLoading = true;
+  String? _sessionError;
+
+  // ── UI state ───────────────────────────────────────────────────────────────
+  VoiceState _voiceState = VoiceState.idle;
+  bool _isAiThinking = false;
+  bool _isSpeakingTTS = false;
+  bool _isRecording = false;
+  bool _permissionDenied = false;
+  String _statusLabel = 'Tap and hold mic to speak';
+
+  // ── Transcript ─────────────────────────────────────────────────────────────
+  final List<Map<String, String>> _messages = [];
+  final ScrollController _scrollController = ScrollController();
+
+  // ── Text input ────────────────────────────────────────────────────────────
+  final TextEditingController _inputController = TextEditingController();
+  bool _showTextInput = false; // toggle between text and voice mode
+
+  // ── MCQ state ─────────────────────────────────────────────────────────────
+  MCQModel? _currentMcq;
+  final List<MCQModel> _askedQuestions = [];
+  final Map<int, int> _userAnswers = {};
+
+  // ── Session stats ─────────────────────────────────────────────────────────
+  int _questionsAsked = 0;
+  int _questionsCorrect = 0;
+  double _scoreSum = 0.0;
+
+  // ── Animations ─────────────────────────────────────────────────────────────
+  late AnimationController _rotationController;
+  late Animation<double> _rotation;
+  late AnimationController _pulseController;
+  late Animation<double> _pulse;
+  late AnimationController _ringsController;
+  late Animation<double> _ringsAnim;
+  late AnimationController _micScaleController;
+  late Animation<double> _micScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+    _checkMicPermission();
+    _startSession();
+  }
+
+  void _setupAnimations() {
+    // Orb rotation
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+    _rotation = Tween<double>(begin: 0, end: 2 * math.pi)
+        .animate(_rotationController);
+
+    // Orb pulse — used when AI is thinking or speaking
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 1.0, end: 1.08).animate(
+        CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+
+    // Listening rings — expand outward when recording
+    _ringsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _ringsAnim = CurvedAnimation(
+        parent: _ringsController, curve: Curves.easeOut);
+
+    // Mic button scale — bounces on press
+    _micScaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+      lowerBound: 0.88,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+    _micScale = _micScaleController;
+  }
+
+  Future<void> _checkMicPermission() async {
+    final hasPermission = await _voice.hasMicPermission();
+    if (!hasPermission) {
+      final granted = await _voice.requestMicPermission();
+      setState(() => _permissionDenied = !granted);
+      if (!granted) {
+        print('[LEARN] Microphone permission denied');
+      }
+    }
+  }
+
+  Future<void> _startSession() async {
+    try {
+      setState(() {
+        _sessionLoading = true;
+        _sessionError = null;
+        _statusLabel = 'Starting session...';
+      });
+
+      final result = await _api.startSession(
+        documentName: widget.content.documentName,
+        summary: widget.content.summary,
+        keyPoints: widget.content.keyPoints,
+        topics: widget.content.topics,
+        mode: widget.mode,
+      );
+
+      final sessionId = result['session_id'] as String;
+      final firstMessage = result['first_message'] as String;
+
+      setState(() {
+        _sessionId = sessionId;
+        _sessionLoading = false;
+        _messages.add({'role': 'ai', 'content': firstMessage});
+        _statusLabel = 'Tap and hold mic to speak';
+      });
+
+      print('[LEARN] Session started: $sessionId');
+      _scrollToBottom();
+
+      // Auto-play the opening message via TTS
+      await _speakAiResponse(firstMessage);
+
+    } catch (e) {
+      print('[LEARN] Session start error: $e');
+      setState(() {
+        _sessionLoading = false;
+        _sessionError = e.toString();
+        _statusLabel = 'Tap and hold mic to speak';
+        _messages.add({
+          'role': 'ai',
+          'content': 'Hello! I\'m ready to help you study '
+              '"${widget.content.documentName}". '
+              'What would you like to learn?',
+        });
+      });
+    }
+  }
+
+  // ── VOICE RECORDING FLOW ──────────────────────────────────────────────────
+
+  Future<void> _onMicTapDown() async {
+    if (_isAiThinking || _isSpeakingTTS || _sessionLoading) return;
+    if (_permissionDenied) {
+      _showPermissionDialog();
+      return;
+    }
+
+    // Stop any ongoing TTS playback when user starts speaking
+    if (_isSpeakingTTS) {
+      await _voice.stopPlayback();
+      setState(() {
+        _isSpeakingTTS = false;
+        _voiceState = VoiceState.idle;
+      });
+    }
+
+    print('[LEARN] Mic pressed — starting recording');
+
+    _micScaleController.reverse();
+
+    final started = await _voice.startRecording();
+    if (!started) {
+      print('[LEARN] Recording failed to start');
+      _micScaleController.forward();
+      return;
+    }
+
+    setState(() {
+      _isRecording = true;
+      _voiceState = VoiceState.listening;
+      _statusLabel = 'Listening... (release to send)';
+    });
+
+    _ringsController.repeat();
+    _rotationController.duration = const Duration(seconds: 4);
+  }
+
+  Future<void> _onMicTapUp() async {
+    if (!_isRecording) return;
+
+    print('[LEARN] Mic released — stopping recording');
+
+    _micScaleController.forward();
+
+    _ringsController.stop();
+    _ringsController.reset();
+    _rotationController.duration = const Duration(seconds: 8);
+
+    setState(() {
+      _isRecording = false;
+      _voiceState = VoiceState.thinking;
+      _statusLabel = 'Transcribing...';
+      _isAiThinking = true;
+    });
+
+    final audioPath = await _voice.stopRecording();
+
+    if (audioPath == null) {
+      print('[LEARN] No audio recorded');
+      setState(() {
+        _isAiThinking = false;
+        _voiceState = VoiceState.idle;
+        _statusLabel = 'No audio detected — try again';
+      });
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        setState(() => _statusLabel = 'Tap and hold mic to speak');
+      }
+      return;
+    }
+
+    final transcript = await _voice.transcribeAudio(audioPath);
+
+    if (transcript == null || transcript.trim().isEmpty) {
+      print('[LEARN] Empty transcript');
+      setState(() {
+        _isAiThinking = false;
+        _voiceState = VoiceState.idle;
+        _statusLabel = 'Could not hear you — try again';
+      });
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        setState(() => _statusLabel = 'Tap and hold mic to speak');
+      }
+      return;
+    }
+
+    print('[LEARN] Transcript: "$transcript"');
+
+    setState(() {
+      _messages.add({'role': 'user', 'content': transcript});
+      _statusLabel = 'Thinking...';
+    });
+    _scrollToBottom();
+
+    await _sendToSession(transcript, 'question');
+  }
+
+  Future<void> _onMicCancel() async {
+    if (!_isRecording) return;
+    print('[LEARN] Mic cancelled');
+    _micScaleController.forward();
+    _ringsController.stop();
+    _ringsController.reset();
+    await _voice.cancelRecording();
+    setState(() {
+      _isRecording = false;
+      _voiceState = VoiceState.idle;
+      _statusLabel = 'Cancelled';
+    });
+    await Future.delayed(const Duration(seconds: 1));
+    if (mounted) setState(() => _statusLabel = 'Tap and hold mic to speak');
+  }
+
+  // ── SESSION INTERACTION FLOW ──────────────────────────────────────────────
+
+  Future<void> _sendToSession(String input, String type) async {
+    if (_isAiThinking) return;
+    if (_sessionId == null && _sessionError == null) return;
+
+    if (type != 'request_mcq' &&
+        (_messages.isEmpty || _messages.last['content'] != input)) {
+      setState(() => _messages.add({'role': 'user', 'content': input}));
+      _inputController.clear();
+    }
+
+    setState(() {
+      _isAiThinking = true;
+      _voiceState = VoiceState.thinking;
+      _statusLabel = 'Thinking...';
+    });
+    _rotationController.duration = const Duration(seconds: 12);
+
+    try {
+      final response = await _api.interact(
+        sessionId: _sessionId ?? 'offline',
+        userInput: input,
+        interactionType: type,
+      );
+
+      final aiMessage = response['ai_message'] as String? ?? '';
+      final mcqData = response['mcq'];
+      final score = response['score'] != null
+          ? (response['score'] as num).toDouble()
+          : null;
+
+      setState(() {
+        _isAiThinking = false;
+        _rotationController.duration = const Duration(seconds: 8);
+
+        if (aiMessage.isNotEmpty) {
+          final isTriggerReasoning =
+              response['trigger_reasoning'] as bool? ?? false;
+          _messages.add({
+            'role': 'ai',
+            'content': aiMessage,
+            'type': isTriggerReasoning ? 'reasoning' : 'normal',
+          });
+        }
+
+        if (score != null) {
+          _scoreSum += score;
+          if (score >= 7) _questionsCorrect++;
+          _questionsAsked++;
+        }
+
+        if (mcqData != null) {
+          _currentMcq = MCQModel(
+            question: mcqData['question'] as String,
+            options: List<String>.from(mcqData['options']),
+            correctIndex: mcqData['correct_index'] as int,
+            explanation: mcqData['explanation'] as String? ?? '',
+          );
+          _askedQuestions.add(_currentMcq!);
+          _questionsAsked++;
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showMcqSheet();
+          });
+        }
+      });
+
+      _scrollToBottom();
+
+      if (aiMessage.isNotEmpty) {
+        await _speakAiResponse(aiMessage);
+      }
+
+    } catch (e) {
+      print('[LEARN] Interact error: $e');
+      setState(() {
+        _isAiThinking = false;
+        _voiceState = VoiceState.idle;
+        _statusLabel = 'Error — try again';
+        _messages.add({
+          'role': 'ai',
+          'content': 'Sorry, I had trouble responding. Please try again.',
+        });
+      });
+    }
+  }
+
+  String _cleanTextForSpeech(String text) {
+    var cleaned = text;
+    // Remove markdown bold/italic asterisks & underscores
+    cleaned = cleaned.replaceAll(RegExp(r'\*+'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'_+'), '');
+    // Remove markdown headers (#, ##, etc.)
+    cleaned = cleaned.replaceAll(RegExp(r'#+\s*'), '');
+    // Remove backticks
+    cleaned = cleaned.replaceAll(RegExp(r'`+'), '');
+    // Remove bullet point markers at start of lines
+    cleaned = cleaned.replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), '');
+    // Remove links [text](url) -> text
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^)]+\)'), (m) => m.group(1) ?? '');
+    // Collapse extra whitespaces
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return cleaned;
+  }
+
+  Future<void> _speakAiResponse(String text) async {
+    if (!mounted) return;
+
+    final spokenText = _cleanTextForSpeech(text);
+    if (spokenText.isEmpty) return;
+
+    setState(() {
+      _isSpeakingTTS = true;
+      _voiceState = VoiceState.speaking;
+      _statusLabel = 'Speaking...';
+    });
+    _rotationController.duration = const Duration(seconds: 6);
+
+    await _voice.speakText(
+      spokenText,
+      voice: ApiService.voiceId,
+      speed: ApiService.voiceSpeed,
+      sessionId: _sessionId ?? '',
+      onStart: () {
+        if (mounted) {
+          setState(() {
+            _isSpeakingTTS = true;
+            _voiceState = VoiceState.speaking;
+          });
+        }
+      },
+      onComplete: () {
+        if (mounted) {
+          setState(() {
+            _isSpeakingTTS = false;
+            _voiceState = VoiceState.idle;
+            _statusLabel = 'Tap and hold mic to speak';
+          });
+          _rotationController.duration = const Duration(seconds: 8);
+        }
+      },
+      onError: () {
+        if (mounted) {
+          setState(() {
+            _isSpeakingTTS = false;
+            _voiceState = VoiceState.idle;
+            _statusLabel = 'Tap and hold mic to speak';
+          });
+        }
+      },
+    );
+  }
+
+  // ── MCQ SHEET ─────────────────────────────────────────────────────────────
+
+  void _showMcqSheet() {
+    if (_currentMcq == null) return;
+
+    _speakAiResponse(_currentMcq!.question);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MCQSheet(
+        mcq: _currentMcq!,
+        questionIndex: _askedQuestions.length - 1,
+        onSubmit: (selectedIndex) {
+          _userAnswers[_askedQuestions.length - 1] = selectedIndex;
+          final selectedOption = _currentMcq!.options[selectedIndex];
+          _sendToSession(selectedOption, 'answer');
+        },
+        onContinue: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  // ── END SESSION ───────────────────────────────────────────────────────────
+
+  Future<void> _endSession() async {
+    if (_isRecording) await _voice.cancelRecording();
+    if (_isSpeakingTTS) await _voice.stopPlayback();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+        title: Text('End Session?',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Text(
+          'Your progress will be saved.',
+          style: GoogleFonts.poppins(
+              fontSize: 14, color: AppTheme.secondaryText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Continue',
+                style: GoogleFonts.poppins(color: AppTheme.primaryBlue)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('End',
+                style: GoogleFonts.poppins(
+                    color: AppTheme.error, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (_sessionId != null) {
+      try {
+        final sessionEndResult = await _api.endSession(_sessionId!).timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => {'duration_sec': 60},
+        );
+        final durationSec = sessionEndResult['duration_sec'] as int? ?? 0;
+
+        await SyncService.syncSession(
+          sessionId: _sessionId!,
+          documentName: widget.content.documentName,
+          mode: widget.mode,
+          durationSec: durationSec > 0 ? durationSec : 60,
+          score: _questionsAsked > 0 ? _scoreSum / _questionsAsked : 0.0,
+          questionsAttempted: _questionsAsked,
+          questionsCorrect: _questionsCorrect,
+          topics: widget.content.topics,
+        ).timeout(const Duration(seconds: 3), onTimeout: () => {});
+      } catch (e) {
+        print('[LEARN] Session sync error (non-fatal): $e');
+      }
+    }
+
+    if (!mounted) return;
+
+    if (_askedQuestions.isNotEmpty) {
+      final avgScore = _scoreSum / _questionsAsked.clamp(1, 9999);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(
+            content: widget.content,
+            score: avgScore,
+            totalQuestions: _askedQuestions.length,
+            correctAnswers: _questionsCorrect,
+            questions: _askedQuestions,
+            userAnswers: _userAnswers,
+          ),
+        ),
+      );
+    } else {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      }
+    }
+  }
+
+  // ── PERMISSION DIALOG ─────────────────────────────────────────────────────
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+        title: Text('Microphone Access',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Text(
+          'Socratiq needs microphone access to hear your voice. '
+          'Please enable it in device Settings → Apps → Socratiq → Permissions.',
+          style: GoogleFonts.poppins(
+              fontSize: 14, color: AppTheme.secondaryText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK',
+                style: GoogleFonts.poppins(color: AppTheme.primaryBlue)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _voice.requestMicPermission();
+              final granted = await _voice.hasMicPermission();
+              setState(() => _permissionDenied = !granted);
+            },
+            child: Text('Try Again',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryBlue)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── HELPERS ───────────────────────────────────────────────────────────────
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Color get _orbGlowColor {
+    if (_isSpeakingTTS) return AppTheme.primaryBlue.withOpacity(0.65);
+    if (_isAiThinking) return AppTheme.lavenderAccent.withOpacity(0.5);
+    switch (_voiceState) {
+      case VoiceState.idle: return AppTheme.primaryBlue.withOpacity(0.3);
+      case VoiceState.listening: return AppTheme.cyanAccent.withOpacity(0.6);
+      case VoiceState.thinking: return AppTheme.lavenderAccent.withOpacity(0.4);
+      case VoiceState.speaking: return AppTheme.primaryBlue.withOpacity(0.65);
+    }
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    _pulseController.dispose();
+    _ringsController.dispose();
+    _micScaleController.dispose();
+    _scrollController.dispose();
+    _inputController.dispose();
+    _voice.dispose();
+    super.dispose();
+  }
+
+  // ── BUILD ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final content = args['content'] as ContentModel;
-    final mode = (args['mode'] as String?) ?? 'learn';
-
     return Scaffold(
-      backgroundColor: AppTheme.baseSurface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryText),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Study Mode: ${mode[0].toUpperCase()}${mode.substring(1)}',
-          style: GoogleFonts.poppins(
-            color: AppTheme.primaryText,
-            fontWeight: FontWeight.w600,
+      backgroundColor: const Color(0xFF0F172A),
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          // ── Background Gradient ──
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF0F172A),
+                    Color(0xFF1E3A8A),
+                    Color(0xFF0E7490),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+
+          // ── Background Ambient Orb Animation ──
+          Positioned.fill(
+            child: Center(
+              child: _buildOrbBackground(),
+            ),
+          ),
+
+          // ── Foreground Full-Screen Translucent Chat Layer ──
+          SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(),
+                Expanded(child: _buildTranscript()),
+                _buildContextualChips(),
+                const SizedBox(height: 10),
+                _showTextInput
+                    ? _buildTextInput()
+                    : _buildVoiceControls(),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                content.documentName,
-                textAlign: TextAlign.center,
+    );
+  }
+
+  // ── TOP BAR ───────────────────────────────────────────────────────────────
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                  color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.mode[0].toUpperCase() +
+                      widget.mode.substring(1),
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.cyanAccent,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6),
+                  child: Text('·',
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.4))),
+                ),
+                ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(maxWidth: 130),
+                  child: Text(
+                    widget.content.documentName
+                        .replaceAll('.pdf', ''),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          if (_questionsAsked > 0)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$_questionsCorrect/$_questionsAsked ✓',
                 style: GoogleFonts.poppins(
-                  color: AppTheme.primaryText,
-                  fontSize: 18,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Phase 3 coming soon',
+            ),
+          GestureDetector(
+            onTap: () => setState(() => _showTextInput = !_showTextInput),
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _showTextInput
+                    ? AppTheme.cyanAccent.withOpacity(0.25)
+                    : Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: _showTextInput
+                      ? AppTheme.cyanAccent.withOpacity(0.5)
+                      : Colors.white.withOpacity(0.15),
+                ),
+              ),
+              child: Icon(
+                _showTextInput
+                    ? Icons.keyboard_rounded
+                    : Icons.keyboard_alt_outlined,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _endSession,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                    color: AppTheme.error.withOpacity(0.4)),
+              ),
+              child: Text(
+                'End',
                 style: GoogleFonts.poppins(
-                  color: AppTheme.secondaryText,
-                  fontSize: 14,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.error,
                 ),
               ),
-            ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── TRANSCRIPT ────────────────────────────────────────────────────────────
+
+  Widget _buildTranscript() {
+    return _sessionLoading
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Starting your session...',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            itemCount:
+                _messages.length + (_isAiThinking ? 1 : 0),
+            itemBuilder: (context, i) {
+              if (_isAiThinking && i == _messages.length) {
+                return _buildThinkingBubble();
+              }
+              final msg = _messages[i];
+              final isAI = msg['role'] == 'ai';
+              return _buildMessageBubble(
+                  msg['content'] ?? '', isAI);
+            },
+          );
+  }
+
+  Widget _buildMessageBubble(String text, bool isAI) {
+    return Align(
+      alignment:
+          isAI ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.82,
+        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isAI
+              ? Colors.black.withOpacity(0.35)
+              : AppTheme.primaryBlue.withOpacity(0.55),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isAI ? 4 : 18),
+            bottomRight: Radius.circular(isAI ? 18 : 4),
+          ),
+          border: Border.all(
+            color: isAI
+                ? Colors.white.withOpacity(0.20)
+                : AppTheme.cyanAccent.withOpacity(0.40),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          text,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: Colors.white.withOpacity(0.95),
+            height: 1.5,
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildThinkingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: RepaintBoundary(
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.12),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+              bottomLeft: Radius.circular(4),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(3, (i) {
+              return AnimatedBuilder(
+                animation: _pulseController,
+                builder: (_, __) {
+                  final delay = i * 0.33;
+                  final val = (_pulseController.value - delay)
+                      .clamp(0.0, 1.0);
+                  return Container(
+                    width: 8,
+                    height: 8,
+                    margin: EdgeInsets.only(right: i < 2 ? 4 : 0),
+                    decoration: BoxDecoration(
+                      color: Colors.white
+                          .withOpacity(0.25 + val * 0.7),
+                      shape: BoxShape.circle,
+                    ),
+                  );
+                },
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── BACKGROUND ORB ANIMATION ─────────────────────────────────────────────
+
+  Widget _buildOrbBackground() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RepaintBoundary(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (_isRecording || _isSpeakingTTS)
+                RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _ringsAnim,
+                    builder: (_, __) {
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [1.4, 1.8, 2.2]
+                            .asMap()
+                            .entries
+                            .map((e) {
+                          final delay = e.key * 0.28;
+                          final rVal = _isRecording
+                              ? (_ringsController.value - delay)
+                                  .clamp(0.0, 1.0)
+                              : (_pulseController.value - delay)
+                                  .clamp(0.0, 1.0);
+                          final ringColor = _isRecording
+                              ? AppTheme.cyanAccent
+                              : AppTheme.primaryBlue;
+                          return Container(
+                            width: 220 * e.value,
+                            height: 220 * e.value,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: ringColor.withOpacity(
+                                    (1.0 - rVal) * 0.35),
+                                width: 1.5,
+                              ),
+                            ),
+                          );
+                          }).toList(),
+                      );
+                    },
+                  ),
+                ),
+
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 350),
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _orbGlowColor,
+                      blurRadius: _isRecording || _isSpeakingTTS
+                          ? 90
+                          : 60,
+                      spreadRadius:
+                          _isRecording || _isSpeakingTTS ? 25 : 12,
+                    ),
+                  ],
+                ),
+              ),
+
+              RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge(
+                      [_rotation, _pulse]),
+                  builder: (_, __) => Transform.scale(
+                    scale:
+                        (_isAiThinking || _isSpeakingTTS)
+                            ? _pulse.value
+                            : 1.0,
+                    child: CustomPaint(
+                      painter: WireframeOrbPainter(
+                        rotationAngle: _rotation.value,
+                        scale: 0.95,
+                      ),
+                      size: const Size(220, 220),
+                    ),
+                  ),
+                ),
+              ),
+
+              if (_isRecording)
+                Positioned(
+                  top: 28,
+                  right: 28,
+                  child: RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (_, __) => Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withOpacity(
+                              0.6 + _pulseController.value * 0.4),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.error.withOpacity(0.5),
+                              blurRadius: 10,
+                              spreadRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            key: ValueKey(_statusLabel),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                  color: Colors.white.withOpacity(0.18)),
+            ),
+            child: Text(
+              _statusLabel,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: _isRecording
+                    ? AppTheme.cyanAccent
+                    : Colors.white.withOpacity(0.75),
+                fontWeight: _isRecording
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── CONTEXTUAL CHIPS ──────────────────────────────────────────────────────
+
+  Widget _buildContextualChips() {
+    final chips = [
+      ('Explain differently', 'explain_differently'),
+      ('Give example', 'give_example'),
+      ('Quiz me', 'request_mcq'),
+      ('Go deeper', 'go_deeper'),
+    ];
+
+    final busy = _isAiThinking || _isRecording || _isSpeakingTTS;
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final chip = chips[i];
+          return GestureDetector(
+            onTap: busy
+                ? null
+                : () {
+                    if (chip.$2 == 'request_mcq') {
+                      _sendToSession('Quiz me', 'request_mcq');
+                    } else {
+                      setState(() => _messages.add({
+                            'role': 'user',
+                            'content': chip.$1
+                          }));
+                      _sendToSession(chip.$1, 'contextual');
+                    }
+                  },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white
+                    .withOpacity(busy ? 0.06 : 0.16),
+                borderRadius: BorderRadius.circular(
+                    AppTheme.radiusPill),
+                border: Border.all(
+                    color:
+                        Colors.white.withOpacity(0.2)),
+              ),
+              child: Text(
+                chip.$1,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.white
+                      .withOpacity(busy ? 0.35 : 0.9),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── VOICE CONTROLS (mic button) ───────────────────────────────────────────
+
+  Widget _buildVoiceControls() {
+    final busy = _isAiThinking || _sessionLoading;
+    final canRecord = !busy && !_permissionDenied;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildGlassCircleButton(
+            icon: _isSpeakingTTS
+                ? Icons.volume_off_rounded
+                : Icons.pause_rounded,
+            size: 48,
+            onTap: _isSpeakingTTS
+                ? () async {
+                    await _voice.stopPlayback();
+                    setState(() {
+                      _isSpeakingTTS = false;
+                      _voiceState = VoiceState.idle;
+                      _statusLabel = 'Tap and hold mic to speak';
+                    });
+                  }
+                : null,
+            active: _isSpeakingTTS,
+          ),
+          const SizedBox(width: 28),
+
+          GestureDetector(
+            onTapDown: canRecord ? (_) => _onMicTapDown() : null,
+            onTapUp: (_) => _onMicTapUp(),
+            onTapCancel: () => _onMicCancel(),
+            child: AnimatedBuilder(
+              animation: _micScale,
+              builder: (_, __) => Transform.scale(
+                scale: _micScale.value,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    gradient: canRecord
+                        ? (_isRecording
+                            ? LinearGradient(
+                                colors: [
+                                  AppTheme.cyanAccent,
+                                  AppTheme.cyanAccent
+                                      .withOpacity(0.7),
+                                ],
+                              )
+                            : AppTheme.primaryGradient)
+                        : null,
+                    color: canRecord
+                        ? null
+                        : Colors.white.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                    boxShadow: canRecord
+                        ? (_isRecording
+                            ? [
+                                BoxShadow(
+                                  color: AppTheme.cyanAccent
+                                      .withOpacity(0.5),
+                                  blurRadius: 30,
+                                  spreadRadius: 5,
+                                )
+                              ]
+                            : AppTheme.buttonShadow)
+                        : null,
+                  ),
+                  child: Icon(
+                    _isRecording
+                        ? Icons.stop_rounded
+                        : Icons.mic_rounded,
+                    color: Colors.white.withOpacity(
+                        canRecord ? 1.0 : 0.3),
+                    size: 32,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 28),
+
+          _buildGlassCircleButton(
+            icon: Icons.keyboard_rounded,
+            size: 48,
+            onTap: () =>
+                setState(() => _showTextInput = !_showTextInput),
+            active: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassCircleButton({
+    required IconData icon,
+    required double size,
+    VoidCallback? onTap,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: active
+              ? AppTheme.cyanAccent.withOpacity(0.25)
+              : Colors.white.withOpacity(
+                  onTap != null ? 0.18 : 0.06),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: active
+                ? AppTheme.cyanAccent.withOpacity(0.5)
+                : Colors.white.withOpacity(0.2),
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: Colors.white.withOpacity(
+              onTap != null ? 0.9 : 0.3),
+          size: size * 0.42,
+        ),
+      ),
+    );
+  }
+
+  // ── TEXT INPUT (fallback) ─────────────────────────────────────────────────
+
+  Widget _buildTextInput() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        MediaQuery.of(context).viewInsets.bottom > 0 ? 8 : 12,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius:
+              BorderRadius.circular(AppTheme.radiusPill),
+          border: Border.all(
+              color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _inputController,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Type your answer or question...',
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.4),
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10),
+                ),
+                maxLines: 1,
+                onSubmitted: (text) {
+                  if (text.trim().isNotEmpty) {
+                    setState(() => _messages.add(
+                        {'role': 'user', 'content': text}));
+                    _sendToSession(text, 'question');
+                  }
+                },
+                textInputAction: TextInputAction.send,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _isAiThinking
+                  ? null
+                  : () {
+                      final text = _inputController.text;
+                      if (text.trim().isNotEmpty) {
+                        setState(() => _messages.add({
+                              'role': 'user',
+                              'content': text
+                            }));
+                        _sendToSession(text, 'question');
+                      }
+                    },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: _isAiThinking
+                      ? null
+                      : AppTheme.primaryGradient,
+                  color: _isAiThinking
+                      ? Colors.white.withOpacity(0.1)
+                      : null,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.send_rounded,
+                  color: Colors.white.withOpacity(
+                      _isAiThinking ? 0.3 : 1.0),
+                  size: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── MCQ BOTTOM SHEET ──────────────────────────────────────────────────────────
+
+class _MCQSheet extends StatefulWidget {
+  final MCQModel mcq;
+  final int questionIndex;
+  final Function(int) onSubmit;
+  final VoidCallback onContinue;
+
+  const _MCQSheet({
+    required this.mcq,
+    required this.questionIndex,
+    required this.onSubmit,
+    required this.onContinue,
+  });
+
+  @override
+  State<_MCQSheet> createState() => _MCQSheetState();
+}
+
+class _MCQSheetState extends State<_MCQSheet> {
+  int? _selected;
+  bool _submitted = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.96),
+        borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.radiusXL)),
+      ),
+      child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.divider,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Quick Check',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.cyanAccent,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.mcq.question,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: AppTheme.navyText,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...List.generate(widget.mcq.options.length, (i) {
+                  final sel = _selected == i;
+                  final correct =
+                      _submitted && i == widget.mcq.correctIndex;
+                  final wrong = _submitted &&
+                      sel &&
+                      i != widget.mcq.correctIndex;
+
+                  Color border = AppTheme.divider;
+                  Color bg = Colors.white;
+                  if (sel && !_submitted) {
+                    border = AppTheme.primaryBlue;
+                    bg = const Color(0xFFEEF2FF);
+                  }
+                  if (correct) {
+                    border = AppTheme.success;
+                    bg = const Color(0xFFECFDF5);
+                  }
+                  if (wrong) {
+                    border = AppTheme.error;
+                    bg = const Color(0xFFFEF2F2);
+                  }
+
+                  return GestureDetector(
+                    onTap: _submitted
+                        ? null
+                        : () => setState(() => _selected = i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(
+                            AppTheme.radiusSmall),
+                        border: Border.all(
+                            color: border, width: 1.5),
+                        boxShadow: AppTheme.cardShadow,
+                      ),
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration:
+                                const Duration(milliseconds: 200),
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: sel
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.backgroundAlt,
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              ['A', 'B', 'C', 'D'][i],
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: sel
+                                    ? Colors.white
+                                    : AppTheme.secondaryText,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.mcq.options[i],
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: sel
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: AppTheme.navyText,
+                              ),
+                            ),
+                          ),
+                          if (correct)
+                            const Icon(Icons.check_circle_rounded,
+                                color: AppTheme.success, size: 20),
+                          if (wrong)
+                            const Icon(Icons.cancel_rounded,
+                                color: AppTheme.error, size: 20),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                if (_submitted && widget.mcq.explanation.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(
+                          AppTheme.radiusSmall),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                            Icons.lightbulb_outline_rounded,
+                            color: AppTheme.primaryBlue,
+                            size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.mcq.explanation,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: AppTheme.secondaryText,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                if (!_submitted)
+                  GestureDetector(
+                    onTap: _selected == null
+                        ? null
+                        : () {
+                            setState(() => _submitted = true);
+                            widget.onSubmit(_selected!);
+                          },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: _selected != null
+                            ? AppTheme.primaryGradient
+                            : null,
+                        color: _selected == null
+                            ? AppTheme.divider
+                            : null,
+                        borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill),
+                        boxShadow: _selected != null
+                            ? AppTheme.buttonShadow
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Submit Answer',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: _selected != null
+                              ? Colors.white
+                              : AppTheme.lightText,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  GestureDetector(
+                    onTap: widget.onContinue,
+                    child: Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill),
+                        boxShadow: AppTheme.buttonShadow,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Continue Learning →',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
   }
 }

@@ -1,17 +1,15 @@
 import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:file_picker/file_picker.dart';
 import '../../app_theme.dart';
-import '../../models/content_model.dart';
 import '../../services/api_service.dart';
 import '../../services/hive_service.dart';
-import '../../widgets/floating_nav.dart';
+import '../../models/content_model.dart';
 import '../../widgets/topic_chip.dart';
+import '../session/mode_select.dart';
 
-enum UploadState { idle, selected, uploading, processing, done, error }
+enum _UploadState { idle, selected, processing, done, error }
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -20,469 +18,615 @@ class UploadScreen extends StatefulWidget {
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
-class _UploadScreenState extends State<UploadScreen> {
-  final ApiService _apiService = ApiService();
+class _UploadScreenState extends State<UploadScreen>
+    with SingleTickerProviderStateMixin {
+  _UploadState _state = _UploadState.idle;
+  File? _file;
+  String _fileName = '';
+  String _fileSize = '';
+  String _errorMessage = '';
+  ContentModel? _result;
 
-  UploadState _state = UploadState.idle;
-  File? _selectedFile;
-  ContentModel? _latestContent;
-  List<ContentModel> _savedContent = [];
-  String? _errorMessage;
+  // Processing stage animation
+  int _processingStage = 0;
+  late AnimationController _stageController;
+  final List<String> _stages = [
+    'Reading document...',
+    'Understanding concepts...',
+    'Preparing your tutor...',
+    'Creating questions...',
+  ];
+
+  final _api = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _loadSavedContent();
+    _stageController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
   }
 
-  void _loadSavedContent() {
-    final all = HiveService.getAllContent();
-    all.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+  @override
+  void dispose() {
+    _stageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result == null || result.files.single.path == null) return;
+    final path = result.files.single.path!;
+    final file = File(path);
+    final bytes = await file.length();
+    final kb = (bytes / 1024).toStringAsFixed(1);
     setState(() {
-      _savedContent = all;
-      if (all.isNotEmpty && _latestContent == null) {
-        _latestContent = all.first;
-        _state = UploadState.done;
-      }
+      _file = file;
+      _fileName = result.files.single.name;
+      _fileSize = '$kb KB';
+      _state = _UploadState.selected;
+      _errorMessage = '';
     });
   }
 
-  void _onNavTap(int index) {
-    const routes = ['/home', '/library', '/dashboard', '/settings'];
-    Navigator.pushReplacementNamed(context, routes[index]);
-  }
-
-  Future<void> _pickPdf() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['pdf'],
-      );
-
-      if (result == null || result.files.single.path == null) {
-        return;
-      }
-
-      setState(() {
-        _selectedFile = File(result.files.single.path!);
-        _state = UploadState.selected;
-        _errorMessage = null;
-      });
-    } catch (e) {
-      setState(() {
-        _state = UploadState.error;
-        _errorMessage = 'Could not select file: $e';
-      });
-    }
-  }
-
-  Future<void> _processSelectedDocument() async {
-    if (_selectedFile == null) return;
-
-    final file = _selectedFile!;
-    final fileName = file.path.split(Platform.pathSeparator).last;
-
+  Future<void> _processDocument() async {
+    if (_file == null) return;
     setState(() {
-      _state = UploadState.uploading;
-      _errorMessage = null;
+      _state = _UploadState.processing;
+      _processingStage = 0;
     });
 
+    // Cycle through stages visually
+    _cycleStages();
+
     try {
-      final uploadResponse = await _apiService.uploadPdf(file);
-      final extractedText = (uploadResponse['extracted_text'] ?? '').toString();
+      // Upload PDF
+      final uploadResult = await _api.uploadPdf(_file!);
+      setState(() => _processingStage = 1);
 
-      if (extractedText.trim().isEmpty) {
-        throw Exception('No text was extracted from this PDF.');
-      }
-
-      setState(() {
-        _state = UploadState.processing;
-      });
-
-      final processResponse = await _apiService.processDocument(
-        extractedText,
-        fileName,
+      // Process with AI
+      final processResult = await _api.processDocument(
+        uploadResult['extracted_text'] ?? '',
+        _fileName,
       );
+      setState(() => _processingStage = 3);
 
-      final keyPointsRaw = processResponse['key_points'] ?? processResponse['keyPoints'] ?? [];
-      final topicsRaw = processResponse['topics'] ?? [];
-
+      // Save to Hive
       final content = ContentModel(
-        documentName: fileName,
-        extractedText: extractedText,
-        summary: (processResponse['summary'] ?? '').toString(),
-        keyPoints: List<String>.from(keyPointsRaw as List),
-        topics: List<String>.from(topicsRaw as List),
+        documentName: _fileName,
+        extractedText: uploadResult['extracted_text'] ?? '',
+        summary: processResult['summary'] ?? '',
+        keyPoints: List<String>.from(processResult['key_points'] ?? []),
+        topics: List<String>.from(processResult['topics'] ?? []),
         uploadedAt: DateTime.now(),
       );
-
       await HiveService.saveContent(content);
 
-      setState(() {
-        _latestContent = content;
-        _state = UploadState.done;
-      });
-      _loadSavedContent();
+      if (mounted) {
+        setState(() {
+          _result = content;
+          _state = _UploadState.done;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _state = UploadState.error;
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _state = _UploadState.error;
+          _errorMessage = e.toString();
+        });
+      }
     }
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
-  Widget _buildUploadZone() {
-    final hasFile = _selectedFile != null;
-
-    final inner = Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.cardSurface,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: AppTheme.cardShadow,
-        border: hasFile ? Border.all(color: AppTheme.primaryAccent, width: 2) : null,
-      ),
-      child: _state == UploadState.uploading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryAccent),
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.upload_file_rounded,
-                  size: 44,
-                  color: AppTheme.primaryAccent,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  hasFile ? _selectedFile!.path.split(Platform.pathSeparator).last : 'Tap to browse PDF',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: hasFile ? AppTheme.primaryText : AppTheme.secondaryText,
-                  ),
-                ),
-                if (hasFile) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    _formatFileSize(_selectedFile!.lengthSync()),
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.secondaryText,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-    );
-
-    if (hasFile) return inner;
-
-    return CustomPaint(
-      painter: _DashedRectPainter(color: AppTheme.primaryAccent, strokeWidth: 2),
-      child: inner,
-    );
-  }
-
-  Widget _buildResults(ContentModel content) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Summary',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.primaryText,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppTheme.cardSurface,
-            borderRadius: BorderRadius.circular(2),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Text(
-            content.summary,
-            style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.primaryText),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Topics',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.primaryText,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: content.topics.map((topic) => TopicChip(label: topic)).toList(),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Key Points',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.primaryText,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppTheme.cardSurface,
-            borderRadius: BorderRadius.circular(2),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            children: content.keyPoints
-                .map(
-                  (point) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '• ',
-                          style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.primaryText),
-                        ),
-                        Expanded(
-                          child: Text(
-                            point,
-                            style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.primaryText),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-        const SizedBox(height: 18),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/mode-select', arguments: content);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryAccent,
-              foregroundColor: AppTheme.cardSurface,
-              shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            child: Text(
-              'Start Learning',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSavedFiles() {
-    if (_savedContent.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        Text(
-          'Saved Documents',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.primaryText,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ..._savedContent.map(
-          (item) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.cardSurface,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: ListTile(
-              title: Text(
-                item.documentName,
-                style: GoogleFonts.poppins(
-                  color: AppTheme.primaryText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Text(
-                item.uploadedAt.toLocal().toString(),
-                style: GoogleFonts.poppins(color: AppTheme.secondaryText, fontSize: 12),
-              ),
-              onTap: () {
-                setState(() {
-                  _latestContent = item;
-                  _state = UploadState.done;
-                });
-              },
-            ),
-          ),
-        ),
-      ],
-    );
+  void _cycleStages() async {
+    for (int i = 0; i < _stages.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 1800));
+      if (mounted && _state == _UploadState.processing) {
+        setState(() => _processingStage = i);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.altSurface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryText),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: Text(
-          'Upload Study Material',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.primaryText,
+      backgroundColor: AppTheme.background,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF1E3A8A).withOpacity(0.08),
+              const Color(0xFF0891B2).withOpacity(0.05),
+              AppTheme.background,
+              AppTheme.background,
+            ],
+            stops: const [0.0, 0.25, 0.5, 1.0],
           ),
         ),
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: _state == UploadState.uploading || _state == UploadState.processing ? null : _pickPdf,
-                  child: _buildUploadZone(),
-                ),
-                const SizedBox(height: 12),
-                if (_state == UploadState.selected || _state == UploadState.error || _state == UploadState.done)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _state == UploadState.processing || _state == UploadState.uploading
-                          ? null
-                          : _processSelectedDocument,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryAccent,
-                        foregroundColor: AppTheme.cardSurface,
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'Process Document',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                    ),
-                  ),
-                if (_state == UploadState.processing) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    'Analysing with AI...',
-                    style: GoogleFonts.poppins(color: AppTheme.secondaryText, fontSize: 13),
-                  ),
-                ],
-                if (_state == UploadState.error) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _errorMessage ?? 'Something went wrong.',
-                    style: GoogleFonts.poppins(color: AppTheme.error, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: _selectedFile != null ? _processSelectedDocument : _pickPdf,
-                    child: Text(
-                      'Retry',
-                      style: GoogleFonts.poppins(
-                        color: AppTheme.primaryAccent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-                if (_latestContent != null) ...[
-                  const SizedBox(height: 18),
-                  _buildResults(_latestContent!),
-                ],
-                _buildSavedFiles(),
+                _buildBackButton(),
+                const SizedBox(height: 24),
+                _buildHeading(),
+                const SizedBox(height: 32),
+                _buildMainArea(),
               ],
             ),
           ),
-          FloatingNav(currentIndex: 1, onTap: _onNavTap),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: const Icon(Icons.arrow_back_rounded,
+            color: AppTheme.navyText, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildHeading() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Give SocratiQ',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w700,
+            fontSize: 28,
+            color: AppTheme.navyText,
+            letterSpacing: -0.5,
+          ),
+        ),
+        Text(
+          'something to teach.',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w700,
+            fontSize: 28,
+            color: AppTheme.primaryBlue,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Upload any PDF â€” textbook, notes, or chapter.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppTheme.secondaryText,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainArea() {
+    switch (_state) {
+      case _UploadState.idle:
+        return _buildUploadZone(false);
+      case _UploadState.selected:
+        return Column(
+          children: [
+            _buildUploadZone(true),
+            const SizedBox(height: 20),
+            AppTheme.gradientButton(
+              label: 'Process Document',
+              width: double.infinity,
+              onTap: _processDocument,
+            ),
+          ],
+        );
+      case _UploadState.processing:
+        return _buildProcessingState();
+      case _UploadState.done:
+        return _buildDoneState();
+      case _UploadState.error:
+        return Column(
+          children: [
+            _buildUploadZone(false),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                border: Border.all(
+                    color: AppTheme.error.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: AppTheme.error, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _errorMessage,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: AppTheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            AppTheme.gradientButton(
+              label: 'Try Again',
+              width: double.infinity,
+              onTap: () => setState(() => _state = _UploadState.idle),
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildUploadZone(bool fileSelected) {
+    return GestureDetector(
+      onTap: fileSelected ? null : _pickFile,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: double.infinity,
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          boxShadow: AppTheme.cardShadow,
+          border: Border.all(
+            color: fileSelected
+                ? AppTheme.primaryBlue
+                : AppTheme.divider,
+            width: fileSelected ? 2 : 1.5,
+            style: fileSelected
+                ? BorderStyle.solid
+                : BorderStyle.solid,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!fileSelected) ...[
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.upload_file_rounded,
+                  color: AppTheme.primaryBlue,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Choose PDF',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  color: AppTheme.navyText,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tap to browse from your device',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: AppTheme.secondaryText,
+                ),
+              ),
+            ] else ...[
+              const Icon(Icons.picture_as_pdf_rounded,
+                  color: AppTheme.error, size: 48),
+              const SizedBox(height: 12),
+              Text(
+                _fileName,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: AppTheme.navyText,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _fileSize,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: AppTheme.secondaryText,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _pickFile,
+                child: Text(
+                  'Change file',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProcessingState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E3A8A),
+            Color(0xFF0E7490),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.orbGlow,
+      ),
+      child: Column(
+        children: [
+          // Owl animation placeholder
+          Image.asset(
+            'assets/images/logo.png',
+            width: 100,
+            height: 100,
+          ),
+          const SizedBox(height: 24),
+          // Stage indicators
+          ..._stages.asMap().entries.map((e) {
+            final done = e.key < _processingStage;
+            final active = e.key == _processingStage;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: done
+                          ? AppTheme.success
+                          : active
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: done
+                        ? const Icon(Icons.check_rounded,
+                            color: Colors.white, size: 14)
+                        : active
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                ),
+                              )
+                            : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    e.value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: active
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: done || active
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
   }
-}
 
-class _DashedRectPainter extends CustomPainter {
-  final Color color;
-  final double strokeWidth;
-
-  _DashedRectPainter({required this.color, required this.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    const dash = 8.0;
-    const gap = 5.0;
-
-    void drawDashedLine(Offset start, Offset end) {
-      final totalLength = (end - start).distance;
-      final direction = (end - start) / totalLength;
-      double current = 0;
-      while (current < totalLength) {
-        final dashStart = start + direction * current;
-        final dashEnd = start + direction * (current + dash > totalLength ? totalLength : current + dash);
-        canvas.drawLine(dashStart, dashEnd, paint);
-        current += dash + gap;
-      }
-    }
-
-    final topLeft = const Offset(0, 0);
-    final topRight = Offset(size.width, 0);
-    final bottomLeft = Offset(0, size.height);
-    final bottomRight = Offset(size.width, size.height);
-
-    drawDashedLine(topLeft, topRight);
-    drawDashedLine(topRight, bottomRight);
-    drawDashedLine(bottomRight, bottomLeft);
-    drawDashedLine(bottomLeft, topLeft);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedRectPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+  Widget _buildDoneState() {
+    if (_result == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Success header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.success.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border: Border.all(color: AppTheme.success.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.success.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_rounded,
+                    color: AppTheme.success, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your tutor is ready!',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: AppTheme.navyText,
+                      ),
+                    ),
+                    Text(
+                      _fileName.replaceAll('.pdf', ''),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: AppTheme.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Summary card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Summary',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: AppTheme.navyText,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _result!.summary,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.secondaryText,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Topics
+        Text(
+          'Detected Topics',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppTheme.navyText,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _result!.topics.map((t) => TopicChip(label: t)).toList(),
+        ),
+        const SizedBox(height: 16),
+        // Key points
+        if (_result!.keyPoints.isNotEmpty) ...[
+          Text(
+            'Key Concepts',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: AppTheme.navyText,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              children: _result!.keyPoints.take(5).map((kp) =>
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        margin: const EdgeInsets.only(top: 6, right: 10),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          kp,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppTheme.secondaryText,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ).toList(),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        // CTA
+        AppTheme.gradientButton(
+          label: 'Start Learning',
+          width: double.infinity,
+          onTap: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ModeSelectScreen(content: _result!),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

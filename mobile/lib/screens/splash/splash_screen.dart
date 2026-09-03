@@ -1,10 +1,10 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../../app_theme.dart';
-import '../../services/auth_service.dart';
+
+import '../../services/sync_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,58 +13,246 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeIn;
+  late Animation<Offset> _slideUp;
+
   @override
   void initState() {
     super.initState();
-    _boot();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _slideUp = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _controller.forward();
+
+    Timer(const Duration(milliseconds: 2500), () async {
+      if (!mounted) return;
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Sync profile in background — don't block navigation
+        SyncService.syncProfile().then((_) {
+          print('[SPLASH] Profile synced on launch');
+        }).catchError((e) {
+          print('[SPLASH] Profile sync failed (non-fatal): $e');
+        });
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    });
   }
 
-  Future<void> _boot() async {
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-
-    final route = AuthService.isLoggedIn ? '/home' : '/login';
-    Navigator.pushReplacementNamed(context, route);
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.altSurface,
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
+      backgroundColor: AppTheme.background,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.auroraGradient),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeIn,
+            child: SlideTransition(
+              position: _slideUp,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Spacer(flex: 2),
+
+                  // ── OWL LOGO ──────────────────────────────────────────────
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: AppTheme.orbGlow,
+                    ),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text('🎓', style: TextStyle(fontSize: 60)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── APP NAME ──────────────────────────────────────────────
                   Text(
-                    'Socratiq',
+                    'SocratiQ',
                     style: GoogleFonts.poppins(
-                      color: AppTheme.primaryAccent,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 40,
+                      color: AppTheme.navyText,
+                      letterSpacing: -1,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Learn smarter. Not harder.',
+                    'Learn Smarter. Not Harder.',
                     style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w400,
+                      fontSize: 16,
                       color: AppTheme.secondaryText,
-                      fontSize: 14,
                     ),
                   ),
+
+                  const Spacer(flex: 1),
+
+                  // ── ILLUSTRATION AREA ─────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Books stack
+                        const Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Text('📚', style: TextStyle(fontSize: 72)),
+                        ),
+                        // PDF tablet card
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            width: 90,
+                            height: 110,
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusSmall),
+                              boxShadow: AppTheme.cardShadow,
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.picture_as_pdf_rounded,
+                                  color: Color(0xFFEF4444),
+                                  size: 36,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Speech bubble with mic + waveform
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: AppTheme.cardShadow,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.mic_rounded,
+                                  color: AppTheme.primaryBlue,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                ...List.generate(5, (i) {
+                                  final heights = [6.0, 12.0, 8.0, 14.0, 6.0];
+                                  return Container(
+                                    width: 3,
+                                    height: heights[i],
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryBlue,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Spacer(flex: 1),
+
+                  // ── DESCRIPTION ───────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      'Turn your notes into a personal tutor\n— just upload, ask and learn.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w400,
+                        fontSize: 14,
+                        color: AppTheme.secondaryText,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+
+                  const Spacer(flex: 1),
+
+                  // ── PAGE DOTS ─────────────────────────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppTheme.divider,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppTheme.divider,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 48),
                 ],
               ),
             ),
           ),
-          const LinearProgressIndicator(
-            color: AppTheme.secondaryAccent,
-            backgroundColor: AppTheme.divider,
-            minHeight: 2,
-          ),
-        ],
+        ),
       ),
     );
   }

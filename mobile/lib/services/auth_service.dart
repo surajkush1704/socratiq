@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'sync_service.dart';
+
 class AuthService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn();
 
@@ -42,7 +44,15 @@ class AuthService {
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      return await _auth.signInWithCredential(credential);
+      final result = await _auth.signInWithCredential(credential);
+
+      // Sync profile after successful login
+      SyncService.syncProfile().catchError((e) {
+        print('[AUTH] Profile sync failed: $e');
+        return <String, dynamic>{};
+      });
+
+      return result;
     } catch (e) {
       print('[AUTH ERROR]: $e');
       return null;
@@ -51,7 +61,12 @@ class AuthService {
 
   static Future<UserCredential?> signInWithEmail(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      SyncService.syncProfile().catchError((e) {
+        print('[AUTH] Profile sync failed: $e');
+        return <String, dynamic>{};
+      });
+      return result;
     } catch (e) {
       print('[AUTH ERROR]: $e');
       rethrow;
@@ -60,7 +75,12 @@ class AuthService {
 
   static Future<UserCredential?> signUpWithEmail(String email, String password) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      final result = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      SyncService.syncProfile().catchError((e) {
+        print('[AUTH] Profile sync failed: $e');
+        return <String, dynamic>{};
+      });
+      return result;
     } catch (e) {
       print('[AUTH ERROR]: $e');
       rethrow;

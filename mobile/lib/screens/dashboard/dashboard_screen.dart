@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:shimmer/shimmer.dart';
 import '../../app_theme.dart';
-import '../../models/content_model.dart';
 import '../../services/hive_service.dart';
-import '../../widgets/floating_nav.dart';
+import '../../services/sync_service.dart';
+import '../../widgets/glass_nav.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,183 +13,922 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  List<ContentModel> _content = [];
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+
+  Map<String, dynamic> _stats = {};
+  List<Map<String, dynamic>> _recentSessions = [];
+  bool _loading = true;
+
+  late AnimationController _barController;
+  late Animation<double> _barAnim;
 
   @override
   void initState() {
     super.initState();
-    _content = HiveService.getAllContent();
+    _barController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _barAnim = CurvedAnimation(
+        parent: _barController, curve: Curves.easeOut);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _loading = true;
+    });
+    try {
+      final stats = await SyncService.getUserStats();
+      final sessions = await SyncService.getRecentActivity(limit: 8);
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _recentSessions = sessions;
+          _loading = false;
+        });
+        _barController.reset();
+        _barController.forward();
+      }
+    } catch (e) {
+      print('[DASHBOARD] Load error: $e');
+      if (mounted) setState(() { _loading = false; });
+    }
   }
 
   void _onNavTap(int index) {
-    const routes = ['/home', '/library', '/dashboard', '/settings'];
-    Navigator.pushReplacementNamed(context, routes[index]);
+    if (index == 0) Navigator.pushReplacementNamed(context, '/home');
+    if (index == 1) Navigator.pushReplacementNamed(context, '/library');
+    if (index == 3) Navigator.pushReplacementNamed(context, '/settings');
+  }
+
+  @override
+  void dispose() {
+    _barController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.baseSurface,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 108),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Your Progress',
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardSurface,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: AppTheme.cardShadow,
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('??', style: TextStyle(fontSize: 32)),
-                        const SizedBox(width: 14),
-                        Text(
-                          '0',
-                          style: GoogleFonts.poppins(
-                            color: AppTheme.primaryAccent,
-                            fontSize: 48,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'day streak',
-                          style: GoogleFonts.poppins(
-                            color: AppTheme.secondaryText,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Row(
-                    children: [
-                      Expanded(child: _SmallStatTile(title: 'Total Sessions', value: '0')),
-                      SizedBox(width: 8),
-                      Expanded(child: _SmallStatTile(title: 'Total Time', value: '0')),
-                      SizedBox(width: 8),
-                      Expanded(child: _SmallStatTile(title: 'Avg Score', value: '0')),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Topic Performance',
-                    style: GoogleFonts.poppins(
-                      color: AppTheme.primaryText,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if (_content.isEmpty)
-                    Text(
-                      'No content yet. Upload a PDF to begin tracking progress.',
-                      style: GoogleFonts.poppins(color: AppTheme.secondaryText),
-                    )
-                  else
-                    ..._content.map(
-                      (item) => Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cardSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: AppTheme.cardShadow,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.documentName,
-                                style: GoogleFonts.poppins(
-                                  color: AppTheme.primaryText,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: AppTheme.altSurface,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                '�',
-                                style: GoogleFonts.poppins(
-                                  color: AppTheme.primaryAccent,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              color: AppTheme.primaryBlue,
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 20),
+                    _loading ? _buildShimmerStreak() : _buildStreakHero(),
+                    const SizedBox(height: 16),
+                    _loading ? _buildShimmerRow() : _buildBentoStats(),
+                    const SizedBox(height: 20),
+                    _buildWeeklyActivity(),
+                    const SizedBox(height: 20),
+                    _buildAccuracyCard(),
+                    const SizedBox(height: 20),
+                    _buildTopicMastery(),
+                    const SizedBox(height: 20),
+                    if (_recentSessions.isNotEmpty) _buildSessionHistory(),
+                  ],
+                ),
               ),
             ),
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: GlassNav(currentIndex: 2, onTap: _onNavTap),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── HEADER ────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Your Progress',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 28,
+              color: AppTheme.navyText,
+              letterSpacing: -0.5,
+            ),
           ),
-          FloatingNav(currentIndex: 2, onTap: _onNavTap),
+        ),
+        if (!_loading)
+          GestureDetector(
+            onTap: _loadData,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: const Icon(Icons.refresh_rounded,
+                  color: AppTheme.navyText, size: 18),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── STREAK HERO ───────────────────────────────────────────────────────────
+
+  Widget _buildStreakHero() {
+    final streak = _stats['streak'] ?? 0;
+    final longest = _stats['longestStreak'] ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E3A8A), Color(0xFF2355F5)],
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.buttonShadow,
+      ),
+      child: Row(
+        children: [
+          const Text('🔥', style: TextStyle(fontSize: 52)),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$streak',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 52,
+                  color: Colors.white,
+                  letterSpacing: -2,
+                  height: 1.0,
+                ),
+              ),
+              Text(
+                'day streak',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  color: Colors.white.withOpacity(0.75),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                streak == 0
+                    ? 'Study today to start!'
+                    : 'Keep it up! 🚀',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Best: $longest days',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
-}
 
-class _SmallStatTile extends StatelessWidget {
-  final String title;
-  final String value;
+  // ── BENTO STATS ───────────────────────────────────────────────────────────
 
-  const _SmallStatTile({required this.title, required this.value});
+  Widget _buildBentoStats() {
+    final sessions = _stats['totalSessions'] ?? 0;
+    final totalTimeSec = _stats['totalStudyTimeSec'] ?? 0;
+    final todayTimeSec = _stats['todayTimeSec'] ?? 0;
+    final todaySessions = _stats['todaySessions'] ?? 0;
 
-  @override
-  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('📚',
+                    style: const TextStyle(fontSize: 28)),
+                const SizedBox(height: 8),
+                Text(
+                  '$sessions',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 32,
+                    color: AppTheme.navyText,
+                    height: 1.0,
+                  ),
+                ),
+                Text(
+                  'total sessions',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppTheme.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Today: $todaySessions session${todaySessions != 1 ? 's' : ''}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Row(
+                  children: [
+                    const Text('⏱',
+                        style: TextStyle(fontSize: 24)),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          SyncService.formatDuration(totalTimeSec),
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
+                            color: AppTheme.navyText,
+                          ),
+                        ),
+                        Text(
+                          'total study time',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppTheme.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFEFF),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Row(
+                  children: [
+                    const Text('📅',
+                        style: TextStyle(fontSize: 24)),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          SyncService.formatDuration(todayTimeSec),
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
+                            color: AppTheme.navyText,
+                          ),
+                        ),
+                        Text(
+                          'studied today',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppTheme.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── WEEKLY ACTIVITY CHART ─────────────────────────────────────────────────
+
+  Widget _buildWeeklyActivity() {
+    final weeklyData = _stats['weeklyData'] as List? ?? [];
+    if (weeklyData.isEmpty && !_loading) {
+      return _buildEmptyWeekly();
+    }
+
+    final maxSec = weeklyData.isEmpty
+        ? 1
+        : (weeklyData
+                .map((d) => (d['totalTimeSec'] as int? ?? 0))
+                .reduce((a, b) => a > b ? a : b) +
+            1);
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.cardSurface,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'This Week',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: AppTheme.navyText,
+                ),
+              ),
+              Text(
+                'Total: ${SyncService.formatDuration(
+                  weeklyData.fold<int>(0, (sum, d) =>
+                    sum + (d['totalTimeSec'] as int? ?? 0)),
+                )}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppTheme.secondaryText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_loading)
+            _buildShimmerBars()
+          else
+            AnimatedBuilder(
+              animation: _barAnim,
+              builder: (_, __) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: weeklyData.asMap().entries.map((e) {
+                    final d = e.value as Map;
+                    final timeSec = d['totalTimeSec'] as int? ?? 0;
+                    final frac = (timeSec / maxSec) * _barAnim.value;
+                    final dayLabel = d['dayLabel'] as String? ?? '?';
+                    final sessions = d['sessions'] as int? ?? 0;
+                    final isToday = e.key == 6;
+
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (timeSec > 0)
+                              Text(
+                                SyncService.formatDuration(timeSec),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 8,
+                                  color: isToday
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.secondaryText,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            const SizedBox(height: 4),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeOut,
+                              width: double.infinity,
+                              height: frac > 0
+                                  ? (80 * frac).clamp(4.0, 80.0)
+                                  : 4,
+                              decoration: BoxDecoration(
+                                gradient: timeSec > 0
+                                    ? AppTheme.primaryGradient
+                                    : null,
+                                color: timeSec == 0
+                                    ? AppTheme.divider
+                                    : null,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              dayLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: isToday
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: isToday
+                                    ? AppTheme.primaryBlue
+                                    : AppTheme.secondaryText,
+                              ),
+                            ),
+                            if (sessions > 0)
+                              Text(
+                                '$sessions',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9,
+                                  color: AppTheme.cyanAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            else
+                              const SizedBox(height: 12),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyWeekly() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         children: [
+          const Icon(Icons.bar_chart_rounded,
+              size: 40, color: AppTheme.divider),
+          const SizedBox(height: 12),
           Text(
-            value,
+            'No activity this week',
             style: GoogleFonts.poppins(
-              color: AppTheme.primaryAccent,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: AppTheme.navyText,
             ),
           ),
-          const SizedBox(height: 4),
           Text(
-            title,
-            textAlign: TextAlign.center,
+            'Complete a session to see your chart',
             style: GoogleFonts.poppins(
+              fontSize: 13,
               color: AppTheme.secondaryText,
-              fontSize: 11,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ── ACCURACY CARD ─────────────────────────────────────────────────────────
+
+  Widget _buildAccuracyCard() {
+    final avgScore = _stats['avgScore'] is int
+        ? (_stats['avgScore'] as int).toDouble()
+        : (_stats['avgScore'] ?? 0.0) as double;
+    final attempted = _stats['totalQuestionsAttempted'] ?? 0;
+    final correct = _stats['totalQuestionsCorrect'] ?? 0;
+    final accuracy = attempted > 0 ? (correct / attempted * 100) : 0.0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Performance',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: AppTheme.navyText,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Accuracy ring
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: accuracy / 100,
+                      strokeWidth: 7,
+                      backgroundColor: AppTheme.divider,
+                      valueColor: AlwaysStoppedAnimation(
+                        accuracy >= 70
+                            ? AppTheme.success
+                            : accuracy >= 50
+                                ? AppTheme.primaryBlue
+                                : AppTheme.warning,
+                      ),
+                    ),
+                    Text(
+                      '${accuracy.round()}%',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: AppTheme.navyText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatRow('Avg Score',
+                        avgScore > 0 ? '${avgScore.toStringAsFixed(1)}/10' : '—'),
+                    _buildStatRow('Questions', '$attempted attempted'),
+                    _buildStatRow('Correct', '$correct answers'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppTheme.secondaryText,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.navyText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── TOPIC MASTERY ─────────────────────────────────────────────────────────
+
+  Widget _buildTopicMastery() {
+    final docs = HiveService.getAllContent();
+    if (docs.isEmpty) return const SizedBox.shrink();
+
+    final allTopics = docs.expand((d) => d.topics).toSet().take(6).toList();
+    if (allTopics.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Topic Mastery',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: AppTheme.navyText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Based on your session scores',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppTheme.secondaryText,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...allTopics.map((topic) {
+            final avgScore = _stats['avgScore'] is int
+                ? (_stats['avgScore'] as int).toDouble()
+                : (_stats['avgScore'] ?? 0.0) as double;
+            final mastery = (avgScore / 10).clamp(0.0, 1.0);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          topic,
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppTheme.navyText,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        mastery > 0
+                            ? '${(mastery * 100).round()}%'
+                            : 'Not studied',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: mastery >= 0.7
+                              ? AppTheme.success
+                              : mastery >= 0.5
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.secondaryText,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: mastery,
+                      minHeight: 6,
+                      backgroundColor: AppTheme.divider,
+                      valueColor: AlwaysStoppedAnimation(
+                        mastery >= 0.7
+                            ? AppTheme.success
+                            : mastery >= 0.5
+                                ? AppTheme.primaryBlue
+                                : AppTheme.cyanAccent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ── SESSION HISTORY ───────────────────────────────────────────────────────
+
+  Widget _buildSessionHistory() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Session History',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            color: AppTheme.navyText,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._recentSessions.take(6).map((session) {
+          final mode = session['mode'] as String? ?? 'learn';
+          final docName =
+              (session['documentName'] as String? ?? 'Unknown')
+                  .replaceAll('.pdf', '');
+          final score = session['score'] is int
+              ? (session['score'] as int).toDouble()
+              : session['score'] as double? ?? 0.0;
+          final durationSec = session['durationSec'] as int? ?? 0;
+          final createdAt = session['createdAt'] as String?;
+          final questionsAttempted =
+              session['questionsAttempted'] as int? ?? 0;
+
+          final modeColor = mode == 'test'
+              ? AppTheme.warning
+              : mode == 'revise'
+                  ? AppTheme.cyanAccent
+                  : AppTheme.primaryBlue;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: modeColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    mode == 'test'
+                        ? Icons.quiz_rounded
+                        : mode == 'revise'
+                            ? Icons.refresh_rounded
+                            : Icons.menu_book_rounded,
+                    color: modeColor,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        docName,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppTheme.navyText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${mode[0].toUpperCase()}${mode.substring(1)} · '
+                        '${SyncService.formatDuration(durationSec)} · '
+                        '$questionsAttempted questions',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: AppTheme.secondaryText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (score > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (score >= 7
+                                  ? AppTheme.success
+                                  : score >= 5
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.warning)
+                              .withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${score.toStringAsFixed(1)}/10',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: score >= 7
+                                ? AppTheme.success
+                                : score >= 5
+                                    ? AppTheme.primaryBlue
+                                    : AppTheme.warning,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 3),
+                    Text(
+                      SyncService.timeAgo(createdAt),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppTheme.lightText,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  // ── SHIMMER STATES ────────────────────────────────────────────────────────
+
+  Widget _buildShimmerStreak() {
+    return Shimmer.fromColors(
+      baseColor: AppTheme.divider,
+      highlightColor: const Color(0xFFF8FAFC),
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerRow() {
+    return Shimmer.fromColors(
+      baseColor: AppTheme.divider,
+      highlightColor: const Color(0xFFF8FAFC),
+      child: Row(
+        children: List.generate(3, (i) => Expanded(
+          child: Container(
+            height: 90,
+            margin: EdgeInsets.only(right: i < 2 ? 10 : 0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
+        )),
+      ),
+    );
+  }
+
+  Widget _buildShimmerBars() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(7, (i) => Shimmer.fromColors(
+        baseColor: AppTheme.divider,
+        highlightColor: const Color(0xFFF8FAFC),
+        child: Container(
+          width: 28,
+          height: (i % 3 + 1) * 20.0,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+      )),
     );
   }
 }

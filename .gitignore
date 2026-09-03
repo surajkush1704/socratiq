@@ -1,6 +1,7 @@
 # ── Secrets / credentials ─────────────────────────────────────────────────────
 backend/.env
 backend/firebase-admin-key.json
+firebase-admin-key.json
 google-services.json
 mobile/google-services.json
 mobile/firebase.json

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../services/hive_service.dart';
-import '../../widgets/floating_nav.dart';
-import '../../widgets/topic_chip.dart';
+import '../../services/sync_service.dart';
+import '../../widgets/glass_nav.dart';
+import '../session/mode_select.dart';
+import '../upload/upload_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -15,183 +16,400 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  final TextEditingController _searchController = TextEditingController();
-
-  List<ContentModel> _all = [];
+  List<ContentModel> _allDocs = [];
   List<ContentModel> _filtered = [];
+  final Map<String, String?> _docLastStudied = {};
+  final TextEditingController _search = TextEditingController();
+  int _filterIndex = 0; // 0=All, 1=Recent
+
+  // Card accent colours cycling
+  final _cardColors = [
+    AppTheme.primaryBlue,
+    AppTheme.lavenderAccent,
+    AppTheme.cyanAccent,
+    const Color(0xFF059669),
+  ];
 
   @override
   void initState() {
     super.initState();
     _load();
-    _searchController.addListener(_applyFilter);
+    _search.addListener(_onSearch);
+  }
+
+  void _load() {
+    final docs = HiveService.getAllContent();
+    setState(() {
+      _allDocs = docs;
+      _filtered = docs;
+    });
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    for (final doc in _allDocs) {
+      try {
+        final history = await SyncService.getDocumentHistory(
+          documentName: doc.documentName,
+        );
+        if (history.isNotEmpty && mounted) {
+          final lastSession = history.first;
+          final createdAt = lastSession['createdAt'] as String?;
+          setState(() {
+            _docLastStudied[doc.documentName] = SyncService.timeAgo(createdAt);
+          });
+        }
+      } catch (e) {
+        print('[LIBRARY] History load error for ${doc.documentName}: $e');
+      }
+    }
+  }
+
+  void _onSearch() {
+    final q = _search.text.toLowerCase();
+    setState(() {
+      _filtered = _allDocs.where((d) =>
+        d.documentName.toLowerCase().contains(q) ||
+        d.topics.any((t) => t.toLowerCase().contains(q))
+      ).toList();
+    });
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_applyFilter);
-    _searchController.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  void _load() {
-    final all = HiveService.getAllContent();
-    all.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
-    _all = all;
-    _applyFilter();
-  }
-
-  void _applyFilter() {
-    final q = _searchController.text.trim().toLowerCase();
-    setState(() {
-      _filtered = _all
-          .where((c) => c.documentName.toLowerCase().contains(q))
-          .toList();
-    });
-  }
-
   void _onNavTap(int index) {
-    const routes = ['/home', '/library', '/dashboard', '/settings'];
-    Navigator.pushReplacementNamed(context, routes[index]);
+    if (index == 0) Navigator.pushReplacementNamed(context, '/home');
+    if (index == 2) Navigator.pushReplacementNamed(context, '/dashboard');
+    if (index == 3) Navigator.pushReplacementNamed(context, '/settings');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.baseSurface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'My Library',
-          style: GoogleFonts.poppins(
-            color: AppTheme.primaryText,
-            fontWeight: FontWeight.w700,
-            fontSize: 28,
-          ),
-        ),
-      ),
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 108),
-            child: Column(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search documents',
-                    filled: true,
-                    fillColor: AppTheme.divider,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+                _buildHeader(),
+                _buildSearchBar(),
+                _buildFilterChips(),
+                Expanded(child: _buildDocList()),
+              ],
+            ),
+            // Floating upload pill — above GlassNav
+            Positioned(
+              bottom: 88,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UploadScreen()),
+                  ).then((_) => _load()),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 14),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                      boxShadow: AppTheme.buttonShadow,
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.add_rounded,
+                            color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Upload PDF',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _filtered.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No documents found.',
-                            style: GoogleFonts.poppins(
-                              color: AppTheme.secondaryText,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final item = _filtered[index];
-                            return GestureDetector(
-                              onTap: () => Navigator.pushNamed(
-                                context,
-                                '/mode-select',
-                                arguments: item,
-                              ),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cardSurface,
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: AppTheme.cardShadow,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.picture_as_pdf_rounded,
-                                      color: AppTheme.primaryAccent,
-                                      size: 28,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.documentName,
-                                            style: GoogleFonts.poppins(
-                                              color: AppTheme.primaryText,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 8,
-                                            children: item.topics
-                                                .map(
-                                                  (topic) =>
-                                                      TopicChip(label: topic),
-                                                )
-                                                .toList(),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: AppTheme.secondaryText,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+              ),
+            ),
+            // GlassNav
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: GlassNav(
+                currentIndex: 1,
+                onTap: _onNavTap,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'My Library',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                fontSize: 28,
+                color: AppTheme.navyText,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          Text(
+            '${_allDocs.length} PDFs',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppTheme.secondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search_rounded,
+              color: AppTheme.cyanAccent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _search,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.navyText,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search documents...',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.lightText,
                 ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          if (_search.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _search.clear();
+                _onSearch();
+              },
+              child: const Icon(Icons.close_rounded,
+                  color: AppTheme.lightText, size: 18),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    final filters = ['All', 'Recent'];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        children: List.generate(filters.length, (i) {
+          final active = i == _filterIndex;
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _filterIndex = i;
+                if (i == 1) {
+                  _filtered = List.from(_allDocs.reversed);
+                } else {
+                  _filtered = _allDocs;
+                }
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 8),
+              decoration: BoxDecoration(
+                color: active ? AppTheme.primaryBlue : Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                boxShadow: active ? AppTheme.buttonShadow : AppTheme.cardShadow,
+              ),
+              child: Text(
+                filters[i],
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: active ? Colors.white : AppTheme.secondaryText,
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildDocList() {
+    if (_filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.library_books_rounded,
+                size: 56, color: AppTheme.divider),
+            const SizedBox(height: 16),
+            Text(
+              _search.text.isEmpty
+                  ? 'No documents yet'
+                  : 'No results found',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: AppTheme.navyText,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _search.text.isEmpty
+                  ? 'Upload your first PDF to get started'
+                  : 'Try a different search term',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.secondaryText,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 160),
+      itemCount: _filtered.length,
+      itemBuilder: (context, index) {
+        final doc = _filtered[index];
+        final color = _cardColors[index % _cardColors.length];
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ModeSelectScreen(content: doc),
+            ),
+          ),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Row(
+              children: [
+                // Coloured icon box
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXS),
+                  ),
+                  child: Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: color,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Doc info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc.documentName.replaceAll('.pdf', ''),
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: AppTheme.navyText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _docLastStudied[doc.documentName] != null
+                            ? 'Studied ${_docLastStudied[doc.documentName]} · ${doc.topics.take(2).join(' · ')}'
+                            : doc.topics.isNotEmpty
+                                ? doc.topics.take(2).join(' · ')
+                                : 'No topics extracted',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppTheme.secondaryText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      // Topic chips row
+                      if (doc.topics.isNotEmpty)
+                        Wrap(
+                          spacing: 6,
+                          children: doc.topics.take(3).map((t) =>
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: color.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                t,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: color,
+                                ),
+                              ),
+                            ),
+                          ).toList(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppTheme.lightText, size: 20),
               ],
             ),
           ),
-          Positioned(
-            right: 16,
-            bottom: 96,
-            child: FloatingActionButton.extended(
-              onPressed: () async {
-                await Navigator.pushNamed(context, '/upload');
-                _load();
-              },
-              backgroundColor: AppTheme.primaryAccent,
-              foregroundColor: AppTheme.cardSurface,
-              label: Text(
-                'Upload',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              icon: const Icon(Icons.add),
-            ),
-          ),
-          FloatingNav(currentIndex: 1, onTap: _onNavTap),
-        ],
-      ),
+        );
+      },
     );
   }
 }

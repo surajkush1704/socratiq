@@ -1,27 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../app_theme.dart';
 
 class TopicChip extends StatelessWidget {
   final String label;
+  final Color? color;
 
-  const TopicChip({super.key, required this.label});
+  const TopicChip({required this.label, this.color, super.key});
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? AppTheme.primaryBlue;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.altSurface,
-        borderRadius: BorderRadius.circular(999),
+        color: c.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: c.withOpacity(0.20), width: 1),
       ),
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          color: AppTheme.primaryAccent,
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
+          color: c,
         ),
       ),
     );

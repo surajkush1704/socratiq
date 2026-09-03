@@ -12,8 +12,8 @@ class ContentModel {
     required this.summary,
     required this.keyPoints,
     required this.topics,
-    required this.uploadedAt,
-  });
+    DateTime? uploadedAt,
+  }) : uploadedAt = uploadedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
     'documentName': documentName,
