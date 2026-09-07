@@ -22,7 +22,7 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = 'audio.webm') -> 
         print('[STT] GROQ_API_KEY not set, trying Deepgram...')
         return await transcribe_audio_deepgram(audio_bytes, filename)
 
-    print(f'[STT] Transcribing {len(audio_bytes)} bytes, file: {filename}')
+    print(f'[STT] Audio: {len(audio_bytes)} bytes')
 
     try:
         ext = filename.split('.')[-1].lower()
@@ -59,7 +59,7 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = 'audio.webm') -> 
 
             data = response.json()
             transcript = data.get('text', '').strip()
-            print(f'[STT] Transcript: "{transcript}"')
+            print(f'[STT] Transcript: "{transcript[:50]}..."')
             return transcript
 
     except Exception as e:
@@ -110,7 +110,7 @@ async def transcribe_audio_deepgram(
             transcript = (
                 data['results']['channels'][0]['alternatives'][0]['transcript']
             )
-            print(f'[STT FALLBACK] Deepgram transcript: "{transcript}"')
+            print(f'[STT FALLBACK] Deepgram transcript: "{transcript[:50]}..."')
             return transcript
 
     except Exception as e:

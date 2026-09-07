@@ -3,8 +3,12 @@ import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
-  // ADB reverse tcp:8000 tcp:8000 allows 127.0.0.1:8000 to work on physical Android devices over USB & emulator
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  // Configurable via --dart-define=API_BASE_URL=https://api.yourdomain.com
+  // Defaults to 127.0.0.1:8000 for local development with adb reverse
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
   // Voice preferences — updated from Settings screen
   // 'slow' | 'normal' | 'fast'

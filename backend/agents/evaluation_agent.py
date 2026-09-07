@@ -74,7 +74,7 @@ Evaluate the student's answer and return JSON:"""
             system_prompt=EVAL_SYSTEM_PROMPT
         )
 
-        print(f'[EVAL AGENT] Raw: {result[:300]}')
+        print(f'[EVAL AGENT] Raw: {result[:50]}...')
 
         cleaned = result.strip()
         if cleaned.startswith('```json'):

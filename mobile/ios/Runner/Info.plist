@@ -5,7 +5,11 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mobile</string>
+	<string>SocratiQ</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Socratiq needs microphone access so you can speak with your AI tutor and answer questions by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Socratiq uses speech recognition to transcribe your voice during study sessions.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

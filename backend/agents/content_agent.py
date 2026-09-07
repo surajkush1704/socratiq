@@ -57,7 +57,7 @@ async def process_content(extracted_text: str) -> dict[str, Any]:
             system_prompt=SYSTEM_PROMPT,
         )
 
-        print(f"[CONTENT AGENT] Raw response: {result[:300]}")
+        print(f"[CONTENT AGENT] Raw response: {result[:50]}...")
 
         # Clean markdown codeblocks
         cleaned = result.strip()

@@ -7,6 +7,9 @@ mobile/google-services.json
 mobile/firebase.json
 *.pem
 *.key
+*.jks
+*.keystore
+**/key.properties
 
 # ── Python ────────────────────────────────────────────────────────────────────
 **/__pycache__/

@@ -18,11 +18,31 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
 
+  int _rateLimitCountdown = 0;
+  bool _isRateLimited = false;
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _startRateLimitCountdown(int seconds) {
+    setState(() {
+      _rateLimitCountdown = seconds;
+      _isRateLimited = true;
+    });
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() => _rateLimitCountdown--);
+      if (_rateLimitCountdown <= 0) {
+        setState(() => _isRateLimited = false);
+        return false;
+      }
+      return true;
+    });
   }
 
   Future<void> _handleGoogle() async {
@@ -33,7 +53,14 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        if (e is AuthRateLimitException) {
+          _startRateLimitCountdown(e.retryAfterSeconds);
+          _showError(e.message);
+        } else {
+          _showError('Sign in failed. Please try again.');
+        }
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -55,7 +82,19 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        if (e is AuthRateLimitException) {
+          _startRateLimitCountdown(e.retryAfterSeconds);
+          _showError(e.message);
+        } else if (e.toString().contains('wrong-password') ||
+            e.toString().contains('user-not-found')) {
+          _showError('Invalid email or password.');
+        } else if (e.toString().contains('email-already-in-use')) {
+          _showError('An account already exists with this email.');
+        } else {
+          _showError('Authentication failed. Please try again.');
+        }
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -121,159 +160,164 @@ class _LoginScreenState extends State<LoginScreen> {
                         BorderRadius.circular(AppTheme.radiusLarge),
                     boxShadow: AppTheme.glassShadow,
                   ),
-                      child: Column(
-                        children: [
-                          // Google button
-                          GestureDetector(
-                            onTap: _loading ? null : _handleGoogle,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 15, horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius:
-                                    BorderRadius.circular(AppTheme.radiusPill),
-                                boxShadow: AppTheme.cardShadow,
-                                border: Border.all(color: AppTheme.divider),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.primaryBlue,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'G',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Continue with Google',
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: AppTheme.navyText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                  child: Column(
+                    children: [
+                      // Google button
+                      GestureDetector(
+                        onTap: (_loading || _isRateLimited) ? null : _handleGoogle,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 15, horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusPill),
+                            boxShadow: AppTheme.cardShadow,
+                            border: Border.all(color: AppTheme.divider),
                           ),
-                          const SizedBox(height: 20),
-                          // Divider
-                          Row(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Expanded(child: Divider()),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12),
-                                child: Text(
-                                  'or',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: AppTheme.lightText,
+                              Container(
+                                width: 20,
+                                height: 20,
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.primaryBlue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'G',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ),
-                              const Expanded(child: Divider()),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Continue with Google',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppTheme.navyText,
+                                ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 20),
-                          // Email field
-                          _buildTextField(
-                            controller: _emailController,
-                            hint: 'Email address',
-                            icon: Icons.email_outlined,
-                          ),
-                          const SizedBox(height: 12),
-                          // Password field
-                          _buildTextField(
-                            controller: _passwordController,
-                            hint: 'Password',
-                            icon: Icons.lock_outline_rounded,
-                            obscure: _obscurePassword,
-                            suffix: GestureDetector(
-                              onTap: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
-                              child: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                color: AppTheme.lightText,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          // Main button
-                          GestureDetector(
-                            onTap: _loading ? null : _handleEmail,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
-                                borderRadius:
-                                    BorderRadius.circular(AppTheme.radiusPill),
-                                boxShadow: AppTheme.buttonShadow,
-                              ),
-                              alignment: Alignment.center,
-                              child: _loading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      _isSignUp ? 'Create Account' : 'Login',
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Toggle
-                          GestureDetector(
-                            onTap: () =>
-                                setState(() => _isSignUp = !_isSignUp),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Divider
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12),
                             child: Text(
-                              _isSignUp
-                                  ? 'Already have an account? Login'
-                                  : 'Don\'t have an account? Sign up',
+                              'or',
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryBlue,
+                                color: AppTheme.lightText,
                               ),
                             ),
                           ),
+                          const Expanded(child: Divider()),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 20),
+                      // Email field
+                      _buildTextField(
+                        controller: _emailController,
+                        hint: 'Email address',
+                        icon: Icons.email_outlined,
+                      ),
+                      const SizedBox(height: 12),
+                      // Password field
+                      _buildTextField(
+                        controller: _passwordController,
+                        hint: 'Password',
+                        icon: Icons.lock_outline_rounded,
+                        obscure: _obscurePassword,
+                        suffix: GestureDetector(
+                          onTap: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
+                          child: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: AppTheme.lightText,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Main button
+                      GestureDetector(
+                        onTap: (_loading || _isRateLimited) ? null : _handleEmail,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            gradient: _isRateLimited ? null : AppTheme.primaryGradient,
+                            color: _isRateLimited ? AppTheme.divider : null,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusPill),
+                            boxShadow: _isRateLimited ? null : AppTheme.buttonShadow,
+                          ),
+                          alignment: Alignment.center,
+                          child: _loading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  _isRateLimited
+                                      ? 'Wait $_rateLimitCountdown seconds...'
+                                      : (_isSignUp ? 'Create Account' : 'Login'),
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: _isRateLimited
+                                        ? AppTheme.secondaryText
+                                        : Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Toggle
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _isSignUp = !_isSignUp),
+                        child: Text(
+                          _isSignUp
+                              ? 'Already have an account? Login'
+                              : 'Don\'t have an account? Sign up',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-        );
+        ),
+      ),
+    );
   }
 
   Widget _buildTextField({

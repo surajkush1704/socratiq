@@ -84,7 +84,7 @@ Generate ONE multiple choice question as JSON:"""
 
     except json.JSONDecodeError as e:
         print(f'[MCQ AGENT] JSON parse error: {e}')
-        print(f'[MCQ AGENT] Raw was: {result}')
+        print(f'[MCQ AGENT] Raw was: {result[:50]}...')
         return None
     except Exception as e:
         print(f'[MCQ AGENT] Error: {e}')

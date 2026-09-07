@@ -25,11 +25,13 @@ class ContentModel {
   };
 
   factory ContentModel.fromMap(Map<String, dynamic> map) => ContentModel(
-    documentName: map['documentName'],
-    extractedText: map['extractedText'],
-    summary: map['summary'],
-    keyPoints: List<String>.from(map['keyPoints']),
-    topics: List<String>.from(map['topics']),
-    uploadedAt: DateTime.parse(map['uploadedAt']),
+    documentName: map['documentName'] as String? ?? 'Untitled',
+    extractedText: map['extractedText'] as String? ?? '',
+    summary: map['summary'] as String? ?? '',
+    keyPoints: (map['keyPoints'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    topics: (map['topics'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    uploadedAt: map['uploadedAt'] != null
+        ? DateTime.tryParse(map['uploadedAt'].toString()) ?? DateTime.now()
+        : DateTime.now(),
   );
 }

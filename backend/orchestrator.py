@@ -417,6 +417,10 @@ async def end_session(session_id: str, user_id: str) -> dict:
     else:
         result['synced_to_firestore'] = False
 
+    # Evict ended session from memory to prevent memory leaks
+    _sessions.pop(session_id, None)
+    _reasoning_trackers.pop(session_id, None)
+
     return result
 
 

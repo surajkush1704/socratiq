@@ -403,3 +403,26 @@ def get_sessions_for_document(uid: str, document_name: str, limit: int = 5) -> l
         items = [doc.to_dict() for doc in docs]
         items.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
         return items[:limit]
+
+
+# ── ACCOUNT DELETION ──────────────────────────────────────────────────────────
+
+def delete_user_account_data(uid: str) -> None:
+    """Deletes all Firestore data associated with a user."""
+    try:
+        # 1. Delete sessions subcollection
+        sessions = sessions_col(uid).stream()
+        for doc in sessions:
+            doc.reference.delete()
+
+        # 2. Delete dailyStats subcollection
+        daily_stats = daily_stats_col(uid).stream()
+        for doc in daily_stats:
+            doc.reference.delete()
+
+        # 3. Delete user document
+        user_doc(uid).delete()
+        print(f'[FIRESTORE] Successfully deleted all data for user {uid}')
+    except Exception as e:
+        print(f'[FIRESTORE] Failed to delete user data for {uid}: {e}')
+        raise

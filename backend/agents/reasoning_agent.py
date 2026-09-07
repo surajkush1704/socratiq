@@ -94,8 +94,8 @@ async def get_socratic_followup(
     attempt_number=3+ → reveal answer + encouragement
     """
     print(f'[REASONING] Socratic followup, attempt #{attempt_number}')
-    print(f'[REASONING] Q: {question[:60]}...')
-    print(f'[REASONING] Wrong answer: {user_wrong_answer[:60]}')
+    print(f'[REASONING] Q: {question[:50]}...')
+    print(f'[REASONING] Wrong answer: {user_wrong_answer[:50]}')
 
     if attempt_number >= 3:
         return await _reveal_answer(
@@ -142,7 +142,7 @@ toward the correct reasoning without giving the answer:"""
             prompt=prompt,
             system_prompt=SOCRATIC_SYSTEM,
         )
-        print(f'[REASONING] Socratic response: {result[:80]}')
+        print(f'[REASONING] Socratic response: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Socratic question failed: {e}')
@@ -174,7 +174,7 @@ followed by one short question:"""
             prompt=prompt,
             system_prompt=HINT_SYSTEM,
         )
-        print(f'[REASONING] Hint response: {result[:80]}')
+        print(f'[REASONING] Hint response: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Hint failed: {e}')
@@ -205,7 +205,7 @@ an encouraging closing statement:"""
             prompt=prompt,
             system_prompt=REVEAL_SYSTEM,
         )
-        print(f'[REASONING] Reveal response: {result[:80]}')
+        print(f'[REASONING] Reveal response: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Reveal failed: {e}')
@@ -241,7 +241,7 @@ Ask a probing follow-up that explores the WHY or edge cases:"""
             prompt=prompt,
             system_prompt=DEEPEN_SYSTEM,
         )
-        print(f'[REASONING] Deepening question: {result[:80]}')
+        print(f'[REASONING] Deepening question: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Deepening question failed: {e}')

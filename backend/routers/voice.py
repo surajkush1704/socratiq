@@ -6,6 +6,11 @@ from agents.voice_agent import (
     synthesize_speech,
     speed_label_to_float
 )
+from middleware.cost_guard import (
+    enforce_daily_quota,
+    validate_file_size,
+    MAX_AUDIO_SIZE_MB,
+)
 
 router = APIRouter()
 
@@ -14,6 +19,7 @@ router = APIRouter()
 async def speech_to_text(
     audio: UploadFile = File(...),
     session_id: str = Form(default=''),
+    uid: str = Form(default=''),
 ):
     """
     Endpoint: POST /voice/stt
@@ -27,6 +33,18 @@ async def speech_to_text(
               f'session={session_id[:8] if session_id else "none"}')
 
         audio_bytes = await audio.read()
+
+        # Validate audio file size
+        validate_file_size(
+            size_bytes=len(audio_bytes),
+            max_mb=MAX_AUDIO_SIZE_MB,
+            file_type='Audio file',
+        )
+
+        # Enforce daily STT quota
+        if uid:
+            enforce_daily_quota(uid=uid, resource='stt', limit=100)
+
         print(f'[STT ROUTER] Audio size: {len(audio_bytes)} bytes')
 
         if len(audio_bytes) < 100:
@@ -58,7 +76,7 @@ async def speech_to_text(
         print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f'STT failed: {str(e)}'
+            detail='Speech-to-text processing failed'
         )
 
 
@@ -112,7 +130,7 @@ async def text_to_speech(
         print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f'TTS failed: {str(e)}'
+            detail='Text-to-speech synthesis failed'
         )
 
 
