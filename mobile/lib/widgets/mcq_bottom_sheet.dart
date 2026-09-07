@@ -24,11 +24,17 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColorDef = AppTheme.dynamicDivider(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppTheme.radiusXL),
         ),
       ),
@@ -43,7 +49,7 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: AppTheme.divider,
+                    color: borderColorDef,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -54,7 +60,7 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
-                  color: AppTheme.navyText,
+                  color: textCol,
                   height: 1.4,
                 ),
               ),
@@ -64,12 +70,20 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                 final isSelected = _selected == i;
                 final isCorrect = _submitted && i == widget.mcq.correctIndex;
                 final isWrong = _submitted && isSelected && i != widget.mcq.correctIndex;
-                Color borderColor = AppTheme.divider;
-                Color bgColor = Colors.white;
-                if (isSelected && !_submitted) borderColor = AppTheme.primaryBlue;
-                if (isSelected && !_submitted) bgColor = const Color(0xFFEEF2FF);
-                if (isCorrect) { borderColor = AppTheme.success; bgColor = const Color(0xFFECFDF5); }
-                if (isWrong) { borderColor = AppTheme.error; bgColor = const Color(0xFFFEF2F2); }
+                Color borderColor = borderColorDef;
+                Color bgColor = cardBg;
+                if (isSelected && !_submitted) {
+                  borderColor = AppTheme.primaryBlue;
+                  bgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF);
+                }
+                if (isCorrect) {
+                  borderColor = AppTheme.success;
+                  bgColor = isDark ? const Color(0xFF064E3B).withOpacity(0.4) : const Color(0xFFECFDF5);
+                }
+                if (isWrong) {
+                  borderColor = AppTheme.error;
+                  bgColor = isDark ? const Color(0xFF7F1D1D).withOpacity(0.4) : const Color(0xFFFEF2F2);
+                }
 
                 return GestureDetector(
                   onTap: _submitted ? null : () => setState(() => _selected = i),
@@ -81,7 +95,7 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                       color: bgColor,
                       borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                       border: Border.all(color: borderColor, width: 1.5),
-                      boxShadow: AppTheme.cardShadow,
+                      boxShadow: isDark ? [] : AppTheme.cardShadow,
                     ),
                     child: Row(
                       children: [
@@ -89,7 +103,9 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.backgroundAlt,
+                            color: isSelected
+                                ? AppTheme.primaryBlue
+                                : (isDark ? AppTheme.darkBackgroundAlt : AppTheme.backgroundAlt),
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
@@ -98,7 +114,7 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
-                              color: isSelected ? Colors.white : AppTheme.secondaryText,
+                              color: isSelected ? Colors.white : secCol,
                             ),
                           ),
                         ),
@@ -109,7 +125,7 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: AppTheme.navyText,
+                              color: textCol,
                             ),
                           ),
                         ),
@@ -126,14 +142,15 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    border: Border.all(color: borderColorDef),
                   ),
                   child: Text(
                     widget.mcq.explanation,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: AppTheme.secondaryText,
+                      color: secCol,
                       height: 1.5,
                     ),
                   ),

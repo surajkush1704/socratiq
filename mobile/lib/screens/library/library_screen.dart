@@ -98,7 +98,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -139,9 +139,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         Text(
                           'Upload PDF',
                           style: GoogleFonts.poppins(
+                            color: Colors.white,
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -165,6 +165,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildHeader() {
+    final isDark = AppTheme.isDark(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
@@ -182,13 +183,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
               height: 38,
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.dynamicCard(context),
                 shape: BoxShape.circle,
-                boxShadow: AppTheme.cardShadow,
+                border: isDark
+                    ? Border.all(color: AppTheme.darkCardBorder)
+                    : null,
+                boxShadow: isDark ? null : AppTheme.cardShadow,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_rounded,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
                 size: 20,
               ),
             ),
@@ -199,7 +203,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 26,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
                 letterSpacing: -0.5,
               ),
             ),
@@ -208,7 +212,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             '${_allDocs.length} PDFs',
             style: GoogleFonts.poppins(
               fontSize: 13,
-              color: AppTheme.secondaryText,
+              color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
         ],
@@ -217,13 +221,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildSearchBar() {
+    final isDark = AppTheme.isDark(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -235,13 +241,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
               controller: _search,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
               ),
               decoration: InputDecoration(
                 hintText: 'Search documents...',
                 hintStyle: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: AppTheme.lightText,
+                  color: AppTheme.dynamicSecondaryText(context),
                 ),
                 border: InputBorder.none,
                 isDense: true,
@@ -265,6 +271,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildFilterChips() {
     final filters = ['All', 'Recent'];
+    final isDark = AppTheme.isDark(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Row(
@@ -287,16 +294,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
               padding: const EdgeInsets.symmetric(
                   horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
-                color: active ? AppTheme.primaryBlue : Colors.white,
+                color: active
+                    ? AppTheme.primaryBlue
+                    : AppTheme.dynamicCard(context),
                 borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                boxShadow: active ? AppTheme.buttonShadow : AppTheme.cardShadow,
+                border: active
+                    ? null
+                    : (isDark ? Border.all(color: AppTheme.darkCardBorder) : null),
+                boxShadow: active
+                    ? AppTheme.buttonShadow
+                    : (isDark ? null : AppTheme.cardShadow),
               ),
               child: Text(
                 filters[i],
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: active ? Colors.white : AppTheme.secondaryText,
+                  color: active
+                      ? Colors.white
+                      : AppTheme.dynamicSecondaryText(context),
                 ),
               ),
             ),
@@ -312,8 +328,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.library_books_rounded,
-                size: 56, color: AppTheme.divider),
+            Icon(Icons.library_books_rounded,
+                size: 56, color: AppTheme.dynamicDivider(context)),
             const SizedBox(height: 16),
             Text(
               _search.text.isEmpty
@@ -322,7 +338,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
               ),
             ),
             const SizedBox(height: 4),
@@ -332,7 +348,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   : 'Try a different search term',
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: AppTheme.secondaryText,
+                color: AppTheme.dynamicSecondaryText(context),
               ),
             ),
           ],
@@ -340,6 +356,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
     }
 
+    final isDark = AppTheme.isDark(context);
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 160),
       itemCount: _filtered.length,
@@ -357,9 +374,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.dynamicCard(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              boxShadow: AppTheme.cardShadow,
+              border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+              boxShadow: isDark ? null : AppTheme.cardShadow,
             ),
             child: Row(
               children: [
@@ -388,7 +406,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: AppTheme.navyText,
+                          color: AppTheme.dynamicText(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -402,7 +420,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 : 'No topics extracted',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-                          color: AppTheme.secondaryText,
+                          color: AppTheme.dynamicSecondaryText(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

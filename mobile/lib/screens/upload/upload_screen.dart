@@ -133,18 +133,21 @@ class _UploadScreenState extends State<UploadScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: bg,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF1E3A8A).withOpacity(0.08),
-              const Color(0xFF0891B2).withOpacity(0.05),
-              AppTheme.background,
-              AppTheme.background,
+              const Color(0xFF1E3A8A).withOpacity(isDark ? 0.25 : 0.08),
+              const Color(0xFF0891B2).withOpacity(isDark ? 0.15 : 0.05),
+              bg,
+              bg,
             ],
             stops: const [0.0, 0.25, 0.5, 1.0],
           ),
@@ -169,18 +172,20 @@ class _UploadScreenState extends State<UploadScreen>
   }
 
   Widget _buildBackButton() {
+    final isDark = AppTheme.isDark(context);
     return GestureDetector(
       onTap: () => Navigator.pop(context),
       child: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.dynamicCard(context),
           shape: BoxShape.circle,
-          boxShadow: AppTheme.cardShadow,
+          border: Border.all(color: AppTheme.dynamicDivider(context)),
+          boxShadow: isDark ? [] : AppTheme.cardShadow,
         ),
-        child: const Icon(Icons.arrow_back_rounded,
-            color: AppTheme.navyText, size: 20),
+        child: Icon(Icons.arrow_back_rounded,
+            color: AppTheme.dynamicText(context), size: 20),
       ),
     );
   }
@@ -194,7 +199,7 @@ class _UploadScreenState extends State<UploadScreen>
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w700,
             fontSize: 28,
-            color: AppTheme.navyText,
+            color: AppTheme.dynamicText(context),
             letterSpacing: -0.5,
           ),
         ),
@@ -212,7 +217,7 @@ class _UploadScreenState extends State<UploadScreen>
           'Upload any PDF — textbook, notes, or chapter.',
           style: GoogleFonts.poppins(
             fontSize: 14,
-            color: AppTheme.secondaryText,
+            color: AppTheme.dynamicSecondaryText(context),
             height: 1.5,
           ),
         ),
@@ -282,6 +287,12 @@ class _UploadScreenState extends State<UploadScreen>
   }
 
   Widget _buildUploadZone(bool fileSelected) {
+    final isDark = AppTheme.isDark(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return GestureDetector(
       onTap: fileSelected ? null : _pickFile,
       child: AnimatedContainer(
@@ -289,13 +300,13 @@ class _UploadScreenState extends State<UploadScreen>
         width: double.infinity,
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          boxShadow: AppTheme.cardShadow,
+          boxShadow: isDark ? [] : AppTheme.cardShadow,
           border: Border.all(
             color: fileSelected
                 ? AppTheme.primaryBlue
-                : AppTheme.divider,
+                : borderColor,
             width: fileSelected ? 2 : 1.5,
             style: fileSelected
                 ? BorderStyle.solid
@@ -325,7 +336,7 @@ class _UploadScreenState extends State<UploadScreen>
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
-                  color: AppTheme.navyText,
+                  color: textCol,
                 ),
               ),
               const SizedBox(height: 4),
@@ -333,7 +344,7 @@ class _UploadScreenState extends State<UploadScreen>
                 'Tap to browse from your device',
                 style: GoogleFonts.poppins(
                   fontSize: 13,
-                  color: AppTheme.secondaryText,
+                  color: secCol,
                 ),
               ),
             ] else ...[
@@ -346,7 +357,7 @@ class _UploadScreenState extends State<UploadScreen>
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
-                  color: AppTheme.navyText,
+                  color: textCol,
                 ),
               ),
               const SizedBox(height: 4),
@@ -354,7 +365,7 @@ class _UploadScreenState extends State<UploadScreen>
                 _fileSize,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
-                  color: AppTheme.secondaryText,
+                  color: secCol,
                 ),
               ),
               const SizedBox(height: 12),
@@ -462,6 +473,12 @@ class _UploadScreenState extends State<UploadScreen>
 
   Widget _buildDoneState() {
     if (_result == null) return const SizedBox.shrink();
+    final isDark = AppTheme.isDark(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -496,14 +513,14 @@ class _UploadScreenState extends State<UploadScreen>
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        color: AppTheme.navyText,
+                        color: textCol,
                       ),
                     ),
                     Text(
                       _fileName.replaceAll('.pdf', ''),
                       style: GoogleFonts.poppins(
                         fontSize: 13,
-                        color: AppTheme.secondaryText,
+                        color: secCol,
                       ),
                     ),
                   ],
@@ -518,9 +535,10 @@ class _UploadScreenState extends State<UploadScreen>
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBg,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            boxShadow: AppTheme.cardShadow,
+            border: Border.all(color: borderColor),
+            boxShadow: isDark ? [] : AppTheme.cardShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,7 +548,7 @@ class _UploadScreenState extends State<UploadScreen>
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
-                  color: AppTheme.navyText,
+                  color: textCol,
                 ),
               ),
               const SizedBox(height: 8),
@@ -538,7 +556,7 @@ class _UploadScreenState extends State<UploadScreen>
                 _result!.summary,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: AppTheme.secondaryText,
+                  color: secCol,
                   height: 1.6,
                 ),
               ),
@@ -552,7 +570,7 @@ class _UploadScreenState extends State<UploadScreen>
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: AppTheme.navyText,
+            color: textCol,
           ),
         ),
         const SizedBox(height: 10),
@@ -569,7 +587,7 @@ class _UploadScreenState extends State<UploadScreen>
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 14,
-              color: AppTheme.navyText,
+              color: textCol,
             ),
           ),
           const SizedBox(height: 10),
@@ -577,9 +595,10 @@ class _UploadScreenState extends State<UploadScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              boxShadow: AppTheme.cardShadow,
+              border: Border.all(color: borderColor),
+              boxShadow: isDark ? [] : AppTheme.cardShadow,
             ),
             child: Column(
               children: _result!.keyPoints.take(5).map((kp) =>
@@ -602,7 +621,7 @@ class _UploadScreenState extends State<UploadScreen>
                           kp,
                           style: GoogleFonts.poppins(
                             fontSize: 14,
-                            color: AppTheme.secondaryText,
+                            color: secCol,
                             height: 1.5,
                           ),
                         ),

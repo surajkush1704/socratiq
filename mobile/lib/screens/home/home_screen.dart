@@ -92,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           SafeArea(
@@ -188,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
-                    color: AppTheme.navyText,
+                    color: AppTheme.dynamicText(context),
                   ),
                 ),
                 Text(
@@ -196,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w400,
                     fontSize: 13,
-                    color: AppTheme.secondaryText,
+                    color: AppTheme.dynamicSecondaryText(context),
                   ),
                 ),
               ],
@@ -211,17 +211,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildIconButton(IconData icon, VoidCallback onTap) {
+    final isDark = AppTheme.isDark(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.dynamicCard(context),
           shape: BoxShape.circle,
-          boxShadow: AppTheme.cardShadow,
+          border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+          boxShadow: isDark ? null : AppTheme.cardShadow,
         ),
-        child: Icon(icon, color: AppTheme.navyText, size: 20),
+        child: Icon(icon, color: AppTheme.dynamicText(context), size: 20),
       ),
     );
   }
@@ -382,9 +384,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.dynamicCard(context),
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: AppTheme.cardShadow,
+                  border: AppTheme.isDark(context)
+                      ? Border.all(color: AppTheme.darkCardBorder)
+                      : null,
+                  boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
                 ),
                 child: !hasDocs
                     ? Column(
@@ -418,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: AppTheme.navyText,
+                              color: AppTheme.dynamicText(context),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -463,7 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: AppTheme.navyText,
+                              color: AppTheme.dynamicText(context),
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -552,8 +557,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundAlt,
+                  color: AppTheme.isDark(context)
+                      ? AppTheme.darkBackgroundAlt
+                      : AppTheme.backgroundAlt,
                   borderRadius: BorderRadius.circular(20),
+                  border: AppTheme.isDark(context)
+                      ? Border.all(color: AppTheme.darkCardBorder)
+                      : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -565,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppTheme.navyText,
+                        color: AppTheme.dynamicText(context),
                       ),
                     ),
                   ],
@@ -590,8 +600,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F3FF),
+                  color: AppTheme.isDark(context)
+                      ? const Color(0xFF2E1065).withOpacity(0.35)
+                      : const Color(0xFFF5F3FF),
                   borderRadius: BorderRadius.circular(20),
+                  border: AppTheme.isDark(context)
+                      ? Border.all(color: AppTheme.darkCardBorder)
+                      : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,7 +618,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppTheme.navyText,
+                        color: AppTheme.dynamicText(context),
                       ),
                     ),
                   ],
@@ -621,8 +636,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFEFF),
+                  color: AppTheme.isDark(context)
+                      ? const Color(0xFF083344).withOpacity(0.35)
+                      : const Color(0xFFECFEFF),
                   borderRadius: BorderRadius.circular(20),
+                  border: AppTheme.isDark(context)
+                      ? Border.all(color: AppTheme.darkCardBorder)
+                      : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: AppTheme.navyText,
+                        color: AppTheme.dynamicText(context),
                       ),
                     ),
                   ],
@@ -663,7 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
-                  color: AppTheme.navyText,
+                  color: AppTheme.dynamicText(context),
                 ),
               ),
               GestureDetector(
@@ -688,7 +708,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Upload your first PDF',
                     style: GoogleFonts.poppins(
                       fontSize: 14,
-                      color: AppTheme.secondaryText,
+                      color: AppTheme.dynamicSecondaryText(context),
                     ),
                   ),
                 ),
@@ -707,6 +727,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       AppTheme.cyanGradient,
                     ];
                     final gradient = gradients[index % gradients.length];
+                    final isDark = AppTheme.isDark(context);
 
                     return GestureDetector(
                       onTap: () => Navigator.push(
@@ -720,9 +741,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         margin: const EdgeInsets.only(right: 12, bottom: 4),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppTheme.dynamicCard(context),
                           borderRadius: BorderRadius.circular(20),
-                          boxShadow: AppTheme.cardShadow,
+                          border: isDark
+                              ? Border.all(color: AppTheme.darkCardBorder)
+                              : null,
+                          boxShadow: isDark ? null : AppTheme.cardShadow,
                         ),
                         child: Row(
                           children: [
@@ -750,7 +774,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: GoogleFonts.poppins(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
-                                      color: AppTheme.navyText,
+                                      color: AppTheme.dynamicText(context),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -760,7 +784,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     doc.topics.isNotEmpty ? doc.topics.first : 'Study Module',
                                     style: GoogleFonts.poppins(
                                       fontSize: 11,
-                                      color: AppTheme.secondaryText,
+                                      color: AppTheme.dynamicSecondaryText(context),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -810,7 +834,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 16,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
             ),
           ),
         ),
@@ -866,18 +890,20 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isLoading = false,
     Color? valueColor,
   }) {
+    final isDark = AppTheme.isDark(context);
     return Container(
       margin: const EdgeInsets.only(right: 12, bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: isLoading
           ? Shimmer.fromColors(
-              baseColor: const Color(0xFFE2E8F0),
-              highlightColor: const Color(0xFFF8FAFC),
+              baseColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              highlightColor: isDark ? const Color(0xFF334155) : const Color(0xFFF8FAFC),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -910,7 +936,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: AppTheme.secondaryText,
+                    color: AppTheme.dynamicSecondaryText(context),
                   ),
                 ),
               ],

@@ -19,12 +19,12 @@ class ModeSelectScreen extends StatelessWidget {
 
     if (effectiveContent == null) {
       return Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: Center(
             child: Text(
               'No document selected',
-              style: GoogleFonts.poppins(color: AppTheme.secondaryText),
+              style: GoogleFonts.poppins(color: AppTheme.dynamicSecondaryText(context)),
             ),
           ),
         ),
@@ -33,9 +33,10 @@ class ModeSelectScreen extends StatelessWidget {
 
     final testCount =
         effectiveContent.extractedText.length > 5000 ? 20 : 15;
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -49,13 +50,14 @@ class ModeSelectScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.dynamicCard(context),
                     shape: BoxShape.circle,
-                    boxShadow: AppTheme.cardShadow,
+                    border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                    boxShadow: isDark ? null : AppTheme.cardShadow,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_rounded,
-                    color: AppTheme.navyText,
+                    color: AppTheme.dynamicText(context),
                     size: 20,
                   ),
                 ),
@@ -68,7 +70,7 @@ class ModeSelectScreen extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700,
                   fontSize: 22,
-                  color: AppTheme.navyText,
+                  color: AppTheme.dynamicText(context),
                   letterSpacing: -0.5,
                 ),
                 maxLines: 2,
@@ -79,7 +81,7 @@ class ModeSelectScreen extends StatelessWidget {
                 'Select study format for this chapter',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: AppTheme.secondaryText,
+                  color: AppTheme.dynamicSecondaryText(context),
                 ),
               ),
               const SizedBox(height: 24),
@@ -205,14 +207,17 @@ class ModeSelectScreen extends StatelessWidget {
     required LinearGradient buttonGradient,
     required VoidCallback onTap,
   }) {
+    final isDark = AppTheme.isDark(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: isDark ? iconColor.withOpacity(0.08) : bgColor,
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
-        border: Border.all(color: iconColor.withOpacity(0.18)),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
+        border: Border.all(
+          color: iconColor.withOpacity(isDark ? 0.35 : 0.18),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +243,7 @@ class ModeSelectScreen extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 18,
-                        color: AppTheme.navyText,
+                        color: AppTheme.dynamicText(context),
                       ),
                     ),
                     Text(
@@ -259,7 +264,7 @@ class ModeSelectScreen extends StatelessWidget {
             description,
             style: GoogleFonts.poppins(
               fontSize: 13,
-              color: AppTheme.secondaryText,
+              color: AppTheme.dynamicSecondaryText(context),
               height: 1.5,
             ),
           ),

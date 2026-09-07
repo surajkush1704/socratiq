@@ -8,16 +8,16 @@ class PrivacyPolicyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Privacy Policy',
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 18,
-                color: AppTheme.navyText)),
+                color: AppTheme.dynamicText(context))),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.navyText),
+        iconTheme: IconThemeData(color: AppTheme.dynamicText(context)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

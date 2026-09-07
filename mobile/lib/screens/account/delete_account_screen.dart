@@ -41,17 +41,19 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textCol = AppTheme.dynamicText(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _step < 3 ? AppBar(
         title: Text('Delete Account',
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 18,
-                color: AppTheme.navyText)),
+                color: textCol)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.navyText),
+        iconTheme: IconThemeData(color: textCol),
       ) : null,
       body: SafeArea(
         child: Padding(
@@ -73,6 +75,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   }
 
   Widget _buildWarning() {
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -106,7 +113,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
-                color: AppTheme.navyText)),
+                color: textCol)),
         const SizedBox(height: 12),
         ...[
           'Your account and profile',
@@ -122,7 +129,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               const SizedBox(width: 10),
               Text(item,
                   style: GoogleFonts.poppins(
-                      fontSize: 14, color: AppTheme.secondaryText)),
+                      fontSize: 14, color: secCol)),
             ],
           ),
         )),
@@ -131,7 +138,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
-                color: AppTheme.navyText)),
+                color: textCol)),
         const SizedBox(height: 12),
         ...[
           'PDFs stored locally on your device (delete manually)',
@@ -139,13 +146,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              const Icon(Icons.info_outline_rounded,
-                  color: AppTheme.secondaryText, size: 18),
+              Icon(Icons.info_outline_rounded,
+                  color: secCol, size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(item,
                     style: GoogleFonts.poppins(
-                        fontSize: 14, color: AppTheme.secondaryText)),
+                        fontSize: 14, color: secCol)),
               ),
             ],
           ),
@@ -176,16 +183,16 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-              border: Border.all(color: AppTheme.divider),
+              border: Border.all(color: borderColor),
             ),
             alignment: Alignment.center,
             child: Text('Keep My Account',
                 style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
-                    color: AppTheme.navyText)),
+                    color: textCol)),
           ),
         ),
       ],
@@ -193,6 +200,12 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   }
 
   Widget _buildConfirmation() {
+    final isDark = AppTheme.isDark(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -200,11 +213,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 24,
-                color: AppTheme.navyText)),
+                color: textCol)),
         const SizedBox(height: 8),
         Text('Are you absolutely sure you want to delete your account?',
             style: GoogleFonts.poppins(
-                fontSize: 15, color: AppTheme.secondaryText, height: 1.5)),
+                fontSize: 15, color: secCol, height: 1.5)),
         const SizedBox(height: 32),
         GestureDetector(
           onTap: () => setState(() => _confirmChecked = !_confirmChecked),
@@ -218,12 +231,12 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 decoration: BoxDecoration(
                   color: _confirmChecked
                       ? AppTheme.error
-                      : Colors.white,
+                      : cardBg,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: _confirmChecked
                         ? AppTheme.error
-                        : AppTheme.divider,
+                        : borderColor,
                     width: 2,
                   ),
                 ),
@@ -238,7 +251,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   'I understand this action is permanent and all my '
                   'data will be deleted immediately.',
                   style: GoogleFonts.poppins(
-                      fontSize: 14, color: AppTheme.secondaryText,
+                      fontSize: 14, color: secCol,
                       height: 1.5),
                 ),
               ),
@@ -255,9 +268,10 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             decoration: BoxDecoration(
               gradient: _confirmChecked
                   ? const LinearGradient(
-                      colors: [Color(0xFFEF4444), Color(0xFFDC2626)])
+                      colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                    )
                   : null,
-              color: _confirmChecked ? null : AppTheme.divider,
+              color: _confirmChecked ? null : (isDark ? AppTheme.darkDivider : AppTheme.divider),
               borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             ),
             alignment: Alignment.center,
@@ -267,7 +281,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     fontSize: 15,
                     color: _confirmChecked
                         ? Colors.white
-                        : AppTheme.lightText)),
+                        : secCol)),
           ),
         ),
         const SizedBox(height: 12),
@@ -277,16 +291,16 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-              border: Border.all(color: AppTheme.divider),
+              border: Border.all(color: borderColor),
             ),
             alignment: Alignment.center,
             child: Text('Go Back',
                 style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
-                    color: AppTheme.navyText)),
+                    color: textCol)),
           ),
         ),
       ],
@@ -294,20 +308,25 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   }
 
   Widget _buildDeleting() {
-    return const Center(
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: AppTheme.primaryBlue),
-          SizedBox(height: 20),
+          const CircularProgressIndicator(color: AppTheme.primaryBlue),
+          const SizedBox(height: 20),
           Text('Deleting your account...',
-              style: TextStyle(color: AppTheme.secondaryText)),
+              style: TextStyle(color: secCol)),
         ],
       ),
     );
   }
 
   Widget _buildDone() {
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -327,12 +346,12 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700,
                   fontSize: 22,
-                  color: AppTheme.navyText)),
+                  color: textCol)),
           const SizedBox(height: 8),
           Text('All your data has been permanently removed.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                  fontSize: 14, color: AppTheme.secondaryText)),
+                  fontSize: 14, color: secCol)),
         ],
       ),
     );

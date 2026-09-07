@@ -59,10 +59,13 @@ class MicPermissionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.auroraGradient),
+        decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -88,7 +91,7 @@ class MicPermissionScreen extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700,
                     fontSize: 24,
-                    color: AppTheme.navyText,
+                    color: textCol,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -100,21 +103,24 @@ class MicPermissionScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
-                    color: AppTheme.secondaryText,
+                    color: secCol,
                     height: 1.6,
                   ),
                 ),
                 const SizedBox(height: 24),
                 // What it's used for
                 _buildUsageRow(
+                  context,
                   Icons.record_voice_over_rounded,
                   'Voice questions to your tutor',
                 ),
                 _buildUsageRow(
+                  context,
                   Icons.hearing_rounded,
                   'Speak answers to MCQ questions',
                 ),
                 _buildUsageRow(
+                  context,
                   Icons.lock_rounded,
                   'Audio is never stored or shared',
                 ),
@@ -131,7 +137,7 @@ class MicPermissionScreen extends StatelessWidget {
                     'Not now — I\'ll use text instead',
                     style: GoogleFonts.poppins(
                       fontSize: 14,
-                      color: AppTheme.secondaryText,
+                      color: secCol,
                     ),
                   ),
                 ),
@@ -143,7 +149,7 @@ class MicPermissionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildUsageRow(IconData icon, String text) {
+  Widget _buildUsageRow(BuildContext context, IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -163,7 +169,7 @@ class MicPermissionScreen extends StatelessWidget {
               text,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
                 fontWeight: FontWeight.w500,
               ),
             ),

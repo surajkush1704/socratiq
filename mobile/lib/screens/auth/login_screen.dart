@@ -112,10 +112,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.auroraGradient),
+        decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
@@ -127,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700,
                     fontSize: 32,
-                    color: AppTheme.navyText,
+                    color: textCol,
                     letterSpacing: -1,
                   ),
                 ),
@@ -147,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Your personal AI tutor awaits.',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: AppTheme.secondaryText,
+                    color: secCol,
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -155,10 +161,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardBg,
                     borderRadius:
                         BorderRadius.circular(AppTheme.radiusLarge),
-                    boxShadow: AppTheme.glassShadow,
+                    border: Border.all(color: borderColor),
+                    boxShadow: isDark ? [] : AppTheme.glassShadow,
                   ),
                   child: Column(
                     children: [
@@ -170,11 +177,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.symmetric(
                               vertical: 15, horizontal: 20),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? AppTheme.darkBackgroundAlt : Colors.white,
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusPill),
-                            boxShadow: AppTheme.cardShadow,
-                            border: Border.all(color: AppTheme.divider),
+                            boxShadow: isDark ? [] : AppTheme.cardShadow,
+                            border: Border.all(color: borderColor),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -203,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: AppTheme.navyText,
+                                  color: textCol,
                                 ),
                               ),
                             ],
@@ -214,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Divider
                       Row(
                         children: [
-                          const Expanded(child: Divider()),
+                          Expanded(child: Divider(color: borderColor)),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12),
@@ -222,11 +229,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               'or',
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
-                                color: AppTheme.lightText,
+                                color: secCol,
                               ),
                             ),
                           ),
-                          const Expanded(child: Divider()),
+                          Expanded(child: Divider(color: borderColor)),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -250,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _obscurePassword
                                 ? Icons.visibility_off_outlined
                                 : Icons.visibility_outlined,
-                            color: AppTheme.lightText,
+                            color: secCol,
                             size: 18,
                           ),
                         ),
@@ -264,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
                             gradient: _isRateLimited ? null : AppTheme.primaryGradient,
-                            color: _isRateLimited ? AppTheme.divider : null,
+                            color: _isRateLimited ? (isDark ? AppTheme.darkDivider : AppTheme.divider) : null,
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusPill),
                             boxShadow: _isRateLimited ? null : AppTheme.buttonShadow,
@@ -287,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
                                     color: _isRateLimited
-                                        ? AppTheme.secondaryText
+                                        ? secCol
                                         : Colors.white,
                                   ),
                                 ),
@@ -327,22 +334,27 @@ class _LoginScreenState extends State<LoginScreen> {
     bool obscure = false,
     Widget? suffix,
   }) {
+    final isDark = AppTheme.isDark(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.background,
+        color: isDark ? AppTheme.darkBackgroundAlt : AppTheme.background,
         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        border: Border.all(color: AppTheme.divider),
+        border: Border.all(color: borderColor),
       ),
       child: TextField(
         controller: controller,
         obscureText: obscure,
         style: GoogleFonts.poppins(
-            fontSize: 14, color: AppTheme.navyText),
+            fontSize: 14, color: textCol),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.poppins(
-              fontSize: 14, color: AppTheme.lightText),
-          prefixIcon: Icon(icon, color: AppTheme.lightText, size: 18),
+              fontSize: 14, color: secCol),
+          prefixIcon: Icon(icon, color: secCol, size: 18),
           suffixIcon: suffix != null
               ? Padding(
                   padding: const EdgeInsets.only(right: 12),

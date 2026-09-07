@@ -117,7 +117,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
 
     if (effectiveContent == null) {
       return Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +135,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
     final docTitle = effectiveContent.documentName.replaceAll('.pdf', '');
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -225,14 +225,14 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                                         style: GoogleFonts.poppins(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 14,
-                                          color: AppTheme.navyText,
+                                          color: AppTheme.dynamicText(context),
                                         ),
                                       ),
                                       Text(
                                         'Powered by Neural AI Voice',
                                         style: GoogleFonts.poppins(
                                           fontSize: 11,
-                                          color: AppTheme.secondaryText,
+                                          color: AppTheme.dynamicSecondaryText(context),
                                         ),
                                       ),
                                     ],
@@ -267,7 +267,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
-                                  color: AppTheme.navyText,
+                                  color: AppTheme.dynamicText(context),
                                 ),
                               ),
                             ],
@@ -279,11 +279,11 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppTheme.dynamicCard(context),
                               borderRadius:
                                   BorderRadius.circular(AppTheme.radiusLarge),
-                              boxShadow: AppTheme.cardShadow,
-                              border: Border.all(color: AppTheme.divider),
+                              boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
+                              border: Border.all(color: AppTheme.dynamicDivider(context)),
                             ),
                             child: Text(
                               _detailedExplanation ??
@@ -291,7 +291,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 height: 1.7,
-                                color: AppTheme.navyText,
+                                color: AppTheme.dynamicText(context),
                               ),
                             ),
                           ),
@@ -305,7 +305,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                               style: GoogleFonts.poppins(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: AppTheme.navyText,
+                                color: AppTheme.dynamicText(context),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -314,12 +314,12 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                                 margin: const EdgeInsets.only(bottom: 10),
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppTheme.dynamicCard(context),
                                   borderRadius: BorderRadius.circular(
                                       AppTheme.radiusMedium),
-                                  boxShadow: AppTheme.cardShadow,
+                                  boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
                                   border: Border.all(
-                                      color: const Color(0xFFE2E8F0)),
+                                      color: AppTheme.dynamicDivider(context)),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,7 +336,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                                         style: GoogleFonts.poppins(
                                           fontSize: 13,
                                           height: 1.5,
-                                          color: AppTheme.secondaryText,
+                                          color: AppTheme.dynamicSecondaryText(context),
                                         ),
                                       ),
                                     ),
@@ -355,7 +355,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
       bottomSheet: Container(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.dynamicCard(context),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),
@@ -390,6 +390,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
   }
 
   Widget _buildTopBar(BuildContext context, String title) {
+    final isDark = AppTheme.isDark(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
@@ -400,13 +401,14 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.dynamicCard(context),
                 shape: BoxShape.circle,
-                boxShadow: AppTheme.cardShadow,
+                border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                boxShadow: isDark ? null : AppTheme.cardShadow,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_rounded,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
                 size: 20,
               ),
             ),
@@ -421,7 +423,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.navyText,
+                    color: AppTheme.dynamicText(context),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

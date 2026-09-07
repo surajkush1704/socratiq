@@ -80,7 +80,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -123,6 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ── HEADER ────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
+    final isDark = AppTheme.isDark(context);
     return Row(
       children: [
         GestureDetector(
@@ -138,13 +139,16 @@ class _DashboardScreenState extends State<DashboardScreen>
             height: 38,
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.dynamicCard(context),
               shape: BoxShape.circle,
-              boxShadow: AppTheme.cardShadow,
+              border: isDark
+                  ? Border.all(color: AppTheme.darkCardBorder)
+                  : null,
+              boxShadow: isDark ? null : AppTheme.cardShadow,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.arrow_back_rounded,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
               size: 20,
             ),
           ),
@@ -155,7 +159,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
               fontSize: 26,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
               letterSpacing: -0.5,
             ),
           ),
@@ -167,12 +171,15 @@ class _DashboardScreenState extends State<DashboardScreen>
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.dynamicCard(context),
                 shape: BoxShape.circle,
-                boxShadow: AppTheme.cardShadow,
+                border: isDark
+                    ? Border.all(color: AppTheme.darkCardBorder)
+                    : null,
+                boxShadow: isDark ? null : AppTheme.cardShadow,
               ),
-              child: const Icon(Icons.refresh_rounded,
-                  color: AppTheme.navyText, size: 18),
+              child: Icon(Icons.refresh_rounded,
+                  color: AppTheme.dynamicText(context), size: 18),
             ),
           ),
       ],
@@ -259,6 +266,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final totalTimeSec = _stats['totalStudyTimeSec'] ?? 0;
     final todayTimeSec = _stats['todayTimeSec'] ?? 0;
     final todaySessions = _stats['todaySessions'] ?? 0;
+    final isDark = AppTheme.isDark(context);
 
     return Row(
       children: [
@@ -267,22 +275,23 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.dynamicCard(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              boxShadow: AppTheme.cardShadow,
+              border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+              boxShadow: isDark ? null : AppTheme.cardShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('📚',
-                    style: const TextStyle(fontSize: 28)),
+                const Text('📚',
+                    style: TextStyle(fontSize: 28)),
                 const SizedBox(height: 8),
                 Text(
                   '$sessions',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w800,
                     fontSize: 32,
-                    color: AppTheme.navyText,
+                    color: AppTheme.dynamicText(context),
                     height: 1.0,
                   ),
                 ),
@@ -290,7 +299,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   'total sessions',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: AppTheme.secondaryText,
+                    color: AppTheme.dynamicSecondaryText(context),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -315,9 +324,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  boxShadow: AppTheme.cardShadow,
+                  border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                  boxShadow: isDark ? null : AppTheme.cardShadow,
                 ),
                 child: Row(
                   children: [
@@ -332,14 +342,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w700,
                             fontSize: 18,
-                            color: AppTheme.navyText,
+                            color: AppTheme.dynamicText(context),
                           ),
                         ),
                         Text(
                           'total study time',
                           style: GoogleFonts.poppins(
                             fontSize: 11,
-                            color: AppTheme.secondaryText,
+                            color: AppTheme.dynamicSecondaryText(context),
                           ),
                         ),
                       ],
@@ -352,9 +362,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFEFF),
+                  color: isDark ? const Color(0xFF0F2537) : const Color(0xFFECFEFF),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  boxShadow: AppTheme.cardShadow,
+                  border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                  boxShadow: isDark ? null : AppTheme.cardShadow,
                 ),
                 child: Row(
                   children: [
@@ -369,14 +380,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w700,
                             fontSize: 18,
-                            color: AppTheme.navyText,
+                            color: AppTheme.dynamicText(context),
                           ),
                         ),
                         Text(
                           'studied today',
                           style: GoogleFonts.poppins(
                             fontSize: 11,
-                            color: AppTheme.secondaryText,
+                            color: AppTheme.dynamicSecondaryText(context),
                           ),
                         ),
                       ],
@@ -399,6 +410,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       return _buildEmptyWeekly();
     }
 
+    final isDark = AppTheme.isDark(context);
     final maxSec = weeklyData.isEmpty
         ? 1
         : (weeklyData
@@ -410,9 +422,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,7 +438,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
-                  color: AppTheme.navyText,
+                  color: AppTheme.dynamicText(context),
                 ),
               ),
               Text(
@@ -435,7 +448,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 )}',
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: AppTheme.secondaryText,
+                  color: AppTheme.dynamicSecondaryText(context),
                 ),
               ),
             ],
@@ -531,32 +544,34 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildEmptyWeekly() {
+    final isDark = AppTheme.isDark(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         children: [
-          const Icon(Icons.bar_chart_rounded,
-              size: 40, color: AppTheme.divider),
+          Icon(Icons.bar_chart_rounded,
+              size: 40, color: AppTheme.dynamicDivider(context)),
           const SizedBox(height: 12),
           Text(
             'No activity this week',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 15,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
             ),
           ),
           Text(
             'Complete a session to see your chart',
             style: GoogleFonts.poppins(
               fontSize: 13,
-              color: AppTheme.secondaryText,
+              color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
         ],
@@ -573,14 +588,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     final attempted = _stats['totalQuestionsAttempted'] ?? 0;
     final correct = _stats['totalQuestionsCorrect'] ?? 0;
     final accuracy = attempted > 0 ? (correct / attempted * 100) : 0.0;
+    final isDark = AppTheme.isDark(context);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,7 +607,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
               fontSize: 16,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
             ),
           ),
           const SizedBox(height: 16),
@@ -606,7 +623,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     CircularProgressIndicator(
                       value: accuracy / 100,
                       strokeWidth: 7,
-                      backgroundColor: AppTheme.divider,
+                      backgroundColor: AppTheme.dynamicDivider(context),
                       valueColor: AlwaysStoppedAnimation(
                         accuracy >= 70
                             ? AppTheme.success
@@ -620,7 +637,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
-                        color: AppTheme.navyText,
+                        color: AppTheme.dynamicText(context),
                       ),
                     ),
                   ],
@@ -655,7 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             label,
             style: GoogleFonts.poppins(
               fontSize: 13,
-              color: AppTheme.secondaryText,
+              color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
           Text(
@@ -663,7 +680,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
             ),
           ),
         ],
@@ -679,14 +696,16 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final allTopics = docs.expand((d) => d.topics).toSet().take(6).toList();
     if (allTopics.isEmpty) return const SizedBox.shrink();
+    final isDark = AppTheme.isDark(context);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,7 +715,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
               fontSize: 16,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
             ),
           ),
           const SizedBox(height: 4),
@@ -704,7 +723,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             'Based on your session scores',
             style: GoogleFonts.poppins(
               fontSize: 12,
-              color: AppTheme.secondaryText,
+              color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
           const SizedBox(height: 16),
@@ -728,7 +747,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: AppTheme.navyText,
+                            color: AppTheme.dynamicText(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -756,7 +775,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: LinearProgressIndicator(
                       value: mastery,
                       minHeight: 6,
-                      backgroundColor: AppTheme.divider,
+                      backgroundColor: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFEEF2FF),
                       valueColor: AlwaysStoppedAnimation(
                         mastery >= 0.7
                             ? AppTheme.success
@@ -778,15 +799,16 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ── SESSION HISTORY ───────────────────────────────────────────────────────
 
   Widget _buildSessionHistory() {
+    final isDark = AppTheme.isDark(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Session History',
+          'Recent Sessions',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w700,
             fontSize: 16,
-            color: AppTheme.navyText,
+            color: AppTheme.dynamicText(context),
           ),
         ),
         const SizedBox(height: 12),
@@ -813,9 +835,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.dynamicCard(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              boxShadow: AppTheme.cardShadow,
+              border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+              boxShadow: isDark ? null : AppTheme.cardShadow,
             ),
             child: Row(
               children: [
@@ -846,7 +869,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: AppTheme.navyText,
+                          color: AppTheme.dynamicText(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

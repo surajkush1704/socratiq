@@ -168,7 +168,8 @@ class VoiceService {
     }
   }
 
-  // ── TTS — RECEIVE AUDIO FROM BACKEND AND PLAY ─────────────────────────────
+  /// Convenience alias for speakText
+  Future<bool> speak(String text) => speakText(text);
 
   /// Send text to backend /voice/tts and play the returned audio
   Future<bool> speakText(

@@ -1580,6 +1580,12 @@ class _MCQSheetState extends State<_MCQSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
@@ -1591,7 +1597,7 @@ class _MCQSheetState extends State<_MCQSheet> {
         MediaQuery.of(context).viewInsets.bottom + 32,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.96),
+        color: isDark ? AppTheme.darkCard.withOpacity(0.98) : Colors.white.withOpacity(0.96),
         borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppTheme.radiusXL)),
       ),
@@ -1606,7 +1612,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
-                      color: AppTheme.divider,
+                      color: borderColor,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -1625,7 +1631,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
-                    color: AppTheme.navyText,
+                    color: textCol,
                     height: 1.4,
                   ),
                 ),
@@ -1638,19 +1644,19 @@ class _MCQSheetState extends State<_MCQSheet> {
                       sel &&
                       i != widget.mcq.correctIndex;
 
-                  Color border = AppTheme.divider;
-                  Color bg = Colors.white;
+                  Color border = borderColor;
+                  Color bg = cardBg;
                   if (sel && !_submitted) {
                     border = AppTheme.primaryBlue;
-                    bg = const Color(0xFFEEF2FF);
+                    bg = isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF);
                   }
                   if (correct) {
                     border = AppTheme.success;
-                    bg = const Color(0xFFECFDF5);
+                    bg = isDark ? const Color(0xFF064E3B).withOpacity(0.4) : const Color(0xFFECFDF5);
                   }
                   if (wrong) {
                     border = AppTheme.error;
-                    bg = const Color(0xFFFEF2F2);
+                    bg = isDark ? const Color(0xFF7F1D1D).withOpacity(0.4) : const Color(0xFFFEF2F2);
                   }
 
                   return GestureDetector(
@@ -1668,7 +1674,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                             AppTheme.radiusSmall),
                         border: Border.all(
                             color: border, width: 1.5),
-                        boxShadow: AppTheme.cardShadow,
+                        boxShadow: isDark ? [] : AppTheme.cardShadow,
                       ),
                       child: Row(
                         children: [
@@ -1680,7 +1686,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                             decoration: BoxDecoration(
                               color: sel
                                   ? AppTheme.primaryBlue
-                                  : AppTheme.backgroundAlt,
+                                  : (isDark ? AppTheme.darkBackgroundAlt : AppTheme.backgroundAlt),
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
@@ -1691,7 +1697,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                                 fontSize: 13,
                                 color: sel
                                     ? Colors.white
-                                    : AppTheme.secondaryText,
+                                    : secCol,
                               ),
                             ),
                           ),

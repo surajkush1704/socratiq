@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'services/hive_service.dart';
+import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,5 +15,6 @@ void main() async {
   }
 
   await HiveService.init();
+  await ThemeService.init();
   runApp(const SocratiqApp());
 }

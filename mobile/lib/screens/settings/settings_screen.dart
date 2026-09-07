@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../services/theme_service.dart';
 import '../../widgets/glass_nav.dart';
 import '../session/learn_screen.dart';
 import '../legal/privacy_policy_screen.dart';
@@ -25,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '1.0.0';
   int _voiceSpeed = 1; // 0=slow, 1=normal, 2=fast
   String _selectedVoice = 'aura-luna-en';
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     const speeds = {'slow': 0, 'normal': 1, 'fast': 2};
     _voiceSpeed = speeds[ApiService.voiceSpeed] ?? 1;
     _selectedVoice = ApiService.voiceId;
+    _themeMode = ThemeService.currentThemeMode;
   }
 
   Future<void> _loadAppInfo() async {
@@ -60,22 +63,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.dynamicCard(context),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
         title: Text('Clear Local Storage',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.dynamicText(context))),
         content: Text(
           'This will delete all locally stored PDFs, summaries, and '
           'cached content from this device. Your cloud progress is safe. '
           'This cannot be undone.',
           style: GoogleFonts.poppins(
-              fontSize: 14, color: AppTheme.secondaryText),
+              fontSize: 14, color: AppTheme.dynamicSecondaryText(context)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text('Cancel',
-                style: GoogleFonts.poppins(color: AppTheme.secondaryText)),
+                style: GoogleFonts.poppins(
+                    color: AppTheme.dynamicSecondaryText(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -106,18 +113,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.dynamicCard(context),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
         title: Text('Sign Out',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.dynamicText(context))),
         content: Text('Your study content will remain on this device.',
             style: GoogleFonts.poppins(
-                fontSize: 14, color: AppTheme.secondaryText)),
+                fontSize: 14, color: AppTheme.dynamicSecondaryText(context))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text('Cancel',
-                style: GoogleFonts.poppins(color: AppTheme.secondaryText)),
+                style: GoogleFonts.poppins(
+                    color: AppTheme.dynamicSecondaryText(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -142,9 +153,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final email = _user?.email ?? '';
     final photo = _user?.photoURL;
     final docCount = Hive.box('content_box').length;
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -169,13 +181,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           height: 38,
                           margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppTheme.dynamicCard(context),
                             shape: BoxShape.circle,
-                            boxShadow: AppTheme.cardShadow,
+                            border: isDark
+                                ? Border.all(color: AppTheme.darkCardBorder)
+                                : null,
+                            boxShadow: isDark ? null : AppTheme.cardShadow,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_back_rounded,
-                            color: AppTheme.navyText,
+                            color: AppTheme.dynamicText(context),
                             size: 20,
                           ),
                         ),
@@ -184,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w700,
                               fontSize: 26,
-                              color: AppTheme.navyText,
+                              color: AppTheme.dynamicText(context),
                               letterSpacing: -0.5)),
                     ],
                   ),
@@ -198,64 +213,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // ── PREFERENCES SECTION ──────────────────────────────
                   _buildSectionLabel('Preferences'),
                   _buildCard(children: [
-                    _buildSubLabel('Tutor Voice Speed'),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: ['Slow', 'Normal', 'Fast']
-                          .asMap()
-                          .entries
-                          .map((e) {
-                        final active = e.key == _voiceSpeed;
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _voiceSpeed = e.key);
-                              const speeds = ['slow', 'normal', 'fast'];
-                              ApiService.voiceSpeed = speeds[e.key];
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              margin: EdgeInsets.only(
-                                  right: e.key < 2 ? 8 : 0),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10),
-                              decoration: BoxDecoration(
-                                gradient: active
-                                    ? AppTheme.primaryGradient
-                                    : null,
-                                color: active ? null : AppTheme.background,
-                                borderRadius: BorderRadius.circular(
-                                    AppTheme.radiusPill),
-                                border: active
-                                    ? null
-                                    : Border.all(color: AppTheme.divider),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(e.value,
-                                  style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                      color: active
-                                          ? Colors.white
-                                          : AppTheme.secondaryText)),
-                            ),
+                    // Theme Mode Selector
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSubLabel('App Theme'),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Automatically adapts to device settings or select preferred mode.',
+                            style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppTheme.dynamicSecondaryText(context)),
                           ),
-                        );
-                      }).toList(),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              _buildThemeOption(
+                                  ThemeMode.system, 'System', Icons.brightness_auto_rounded),
+                              const SizedBox(width: 8),
+                              _buildThemeOption(
+                                  ThemeMode.light, 'Light', Icons.light_mode_rounded),
+                              const SizedBox(width: 8),
+                              _buildThemeOption(
+                                  ThemeMode.dark, 'Dark', Icons.dark_mode_rounded),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildSubLabel('Tutor Voice'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildVoiceChip('Luna ♀', 'aura-luna-en'),
-                        _buildVoiceChip('Asteria ♀', 'aura-asteria-en'),
-                        _buildVoiceChip('Stella ♀', 'aura-stella-en'),
-                        _buildVoiceChip('Orion ♂', 'aura-orion-en'),
-                        _buildVoiceChip('Arcas ♂', 'aura-arcas-en'),
-                      ],
+                    _buildDivider(),
+
+                    // Tutor Voice Speed
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSubLabel('Tutor Voice Speed'),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: ['Slow', 'Normal', 'Fast']
+                                .asMap()
+                                .entries
+                                .map((e) {
+                              final active = e.key == _voiceSpeed;
+                              return Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() => _voiceSpeed = e.key);
+                                    const speeds = ['slow', 'normal', 'fast'];
+                                    ApiService.voiceSpeed = speeds[e.key];
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    margin: EdgeInsets.only(
+                                        right: e.key < 2 ? 8 : 0),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 10),
+                                    decoration: BoxDecoration(
+                                      gradient: active
+                                          ? AppTheme.primaryGradient
+                                          : null,
+                                      color: active
+                                          ? null
+                                          : (isDark
+                                              ? AppTheme.darkBackground
+                                              : AppTheme.background),
+                                      borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusPill),
+                                      border: active
+                                          ? null
+                                          : Border.all(
+                                              color: AppTheme.dynamicDivider(context)),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(e.value,
+                                        style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: active
+                                                ? Colors.white
+                                                : AppTheme.dynamicSecondaryText(context))),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildSubLabel('Tutor Voice'),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _buildVoiceChip('Luna ♀', 'aura-luna-en'),
+                              _buildVoiceChip('Asteria ♀', 'aura-asteria-en'),
+                              _buildVoiceChip('Stella ♀', 'aura-stella-en'),
+                              _buildVoiceChip('Orion ♂', 'aura-orion-en'),
+                              _buildVoiceChip('Arcas ♂', 'aura-arcas-en'),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ]),
                   const SizedBox(height: 16),
@@ -406,12 +467,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCard({required List<Widget> children}) {
+    final isDark = AppTheme.isDark(context);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(children: children),
     );
@@ -424,7 +487,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
               fontSize: 14,
-              color: AppTheme.navyText)),
+              color: AppTheme.dynamicText(context))),
     );
   }
 
@@ -432,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       height: 1,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: AppTheme.divider,
+      color: AppTheme.dynamicDivider(context),
     );
   }
 
@@ -468,11 +531,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: AppTheme.navyText)),
+                          color: AppTheme.dynamicText(context))),
                   if (subtitle != null)
                     Text(subtitle,
                         style: GoogleFonts.poppins(
-                            fontSize: 12, color: AppTheme.secondaryText)),
+                            fontSize: 12,
+                            color: AppTheme.dynamicSecondaryText(context))),
                 ],
               ),
             ),
@@ -484,13 +548,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileCard(String? photo, String name, String email) {
+    final isDark = AppTheme.isDark(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -499,7 +565,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : Container(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     gradient: AppTheme.primaryGradient,
                     shape: BoxShape.circle,
                   ),
@@ -521,10 +587,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 17,
-                        color: AppTheme.navyText)),
+                        color: AppTheme.dynamicText(context))),
                 Text(email,
                     style: GoogleFonts.poppins(
-                        fontSize: 13, color: AppTheme.secondaryText),
+                        fontSize: 13,
+                        color: AppTheme.dynamicSecondaryText(context)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -535,8 +602,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildThemeOption(ThemeMode mode, String label, IconData icon) {
+    final active = _themeMode == mode;
+    final isDark = AppTheme.isDark(context);
+    return Expanded(
+      child: GestureDetector(
+        onTap: () async {
+          setState(() => _themeMode = mode);
+          await ThemeService.setThemeMode(mode);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            gradient: active ? AppTheme.primaryGradient : null,
+            color: active
+                ? null
+                : (isDark ? AppTheme.darkBackground : AppTheme.background),
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+            border: Border.all(
+              color: active
+                  ? Colors.transparent
+                  : (isDark ? AppTheme.darkCardBorder : AppTheme.divider),
+            ),
+            boxShadow: active ? AppTheme.buttonShadow : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: active
+                    ? Colors.white
+                    : AppTheme.dynamicSecondaryText(context),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: active
+                      ? Colors.white
+                      : AppTheme.dynamicSecondaryText(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildVoiceChip(String name, String voiceId) {
     final active = _selectedVoice == voiceId;
+    final isDark = AppTheme.isDark(context);
     return GestureDetector(
       onTap: () {
         setState(() => _selectedVoice = voiceId);
@@ -547,17 +668,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           gradient: active ? AppTheme.primaryGradient : null,
-          color: active ? null : AppTheme.background,
+          color: active
+              ? null
+              : (isDark ? AppTheme.darkBackground : AppTheme.background),
           borderRadius: BorderRadius.circular(AppTheme.radiusPill),
           border: Border.all(
-              color: active ? Colors.transparent : AppTheme.divider),
+              color: active
+                  ? Colors.transparent
+                  : (isDark ? AppTheme.darkCardBorder : AppTheme.divider)),
           boxShadow: active ? AppTheme.buttonShadow : null,
         ),
         child: Text(name,
             style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
-                color: active ? Colors.white : AppTheme.secondaryText)),
+                color: active
+                    ? Colors.white
+                    : AppTheme.dynamicSecondaryText(context))),
       ),
     );
   }

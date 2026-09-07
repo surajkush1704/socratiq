@@ -271,7 +271,7 @@ class _TestScreenState extends State<TestScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: _loadingQuestions
             ? _buildLoadingState()
@@ -285,14 +285,19 @@ class _TestScreenState extends State<TestScreen>
   // ── LOADING STATE ─────────────────────────────────────────────────────────
 
   Widget _buildLoadingState() {
+    final isDark = AppTheme.isDark(context);
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1E3A8A).withOpacity(0.06),
-            AppTheme.background,
+            const Color(0xFF1E3A8A).withOpacity(isDark ? 0.25 : 0.06),
+            bg,
           ],
         ),
       ),
@@ -308,7 +313,7 @@ class _TestScreenState extends State<TestScreen>
                 strokeWidth: 3,
                 valueColor: const AlwaysStoppedAnimation(
                     AppTheme.primaryBlue),
-                backgroundColor: AppTheme.divider,
+                backgroundColor: isDark ? AppTheme.darkDivider : AppTheme.divider,
               ),
             ),
             const SizedBox(height: 24),
@@ -317,7 +322,7 @@ class _TestScreenState extends State<TestScreen>
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
                 fontSize: 18,
-                color: AppTheme.navyText,
+                color: textCol,
               ),
             ),
             const SizedBox(height: 8),
@@ -326,7 +331,7 @@ class _TestScreenState extends State<TestScreen>
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: AppTheme.secondaryText,
+                color: secCol,
                 height: 1.5,
               ),
             ),
@@ -502,12 +507,13 @@ class _TestScreenState extends State<TestScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.dynamicCard(context),
                 shape: BoxShape.circle,
-                boxShadow: AppTheme.cardShadow,
+                border: Border.all(color: AppTheme.dynamicDivider(context)),
+                boxShadow: AppTheme.isDark(context) ? [] : AppTheme.cardShadow,
               ),
-              child: const Icon(Icons.close_rounded,
-                  color: AppTheme.navyText, size: 20),
+              child: Icon(Icons.close_rounded,
+                  color: AppTheme.dynamicText(context), size: 20),
             ),
           ),
           const SizedBox(width: 16),
@@ -521,14 +527,14 @@ class _TestScreenState extends State<TestScreen>
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
-                    color: AppTheme.navyText,
+                    color: AppTheme.dynamicText(context),
                   ),
                 ),
                 Text(
                   '$answeredCount answered',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: AppTheme.secondaryText,
+                    color: AppTheme.dynamicSecondaryText(context),
                   ),
                 ),
               ],
@@ -557,6 +563,7 @@ class _TestScreenState extends State<TestScreen>
   }
 
   Widget _buildProgressBar() {
+    final isDark = AppTheme.isDark(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: AnimatedBuilder(
@@ -579,7 +586,7 @@ class _TestScreenState extends State<TestScreen>
                           ? AppTheme.primaryBlue
                           : current
                               ? AppTheme.primaryBlue.withOpacity(0.35)
-                              : AppTheme.divider,
+                              : (isDark ? AppTheme.darkDivider : AppTheme.divider),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -593,6 +600,7 @@ class _TestScreenState extends State<TestScreen>
   }
 
   Widget _buildQuestionCard(MCQModel question) {
+    final isDark = AppTheme.isDark(context);
     final diff = question.difficulty.toLowerCase();
     Color diffColor;
     Color diffBg;
@@ -601,17 +609,17 @@ class _TestScreenState extends State<TestScreen>
 
     if (diff == 'easy') {
       diffColor = const Color(0xFF059669);
-      diffBg = const Color(0xFFD1FAE5);
+      diffBg = isDark ? const Color(0xFF064E3B).withOpacity(0.4) : const Color(0xFFD1FAE5);
       diffLabel = 'Easy';
       diffIcon = Icons.sentiment_satisfied_alt_rounded;
     } else if (diff == 'hard') {
       diffColor = const Color(0xFFDC2626);
-      diffBg = const Color(0xFFFEE2E2);
+      diffBg = isDark ? const Color(0xFF7F1D1D).withOpacity(0.4) : const Color(0xFFFEE2E2);
       diffLabel = 'Hard';
       diffIcon = Icons.local_fire_department_rounded;
     } else {
       diffColor = const Color(0xFFD97706);
-      diffBg = const Color(0xFFFEF3C7);
+      diffBg = isDark ? const Color(0xFF78350F).withOpacity(0.4) : const Color(0xFFFEF3C7);
       diffLabel = 'Medium';
       diffIcon = Icons.trending_up_rounded;
     }
@@ -620,9 +628,10 @@ class _TestScreenState extends State<TestScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.dynamicCard(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: AppTheme.dynamicDivider(context)),
+        boxShadow: isDark ? [] : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,7 +688,7 @@ class _TestScreenState extends State<TestScreen>
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
               fontSize: 17,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
               height: 1.5,
             ),
           ),
@@ -689,6 +698,12 @@ class _TestScreenState extends State<TestScreen>
   }
 
   List<Widget> _buildOptions(MCQModel question, int? selectedIdx) {
+    final isDark = AppTheme.isDark(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+
     return List.generate(question.options.length, (i) {
       final selected = selectedIdx == i;
 
@@ -701,17 +716,17 @@ class _TestScreenState extends State<TestScreen>
               horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             color: selected
-                ? AppTheme.primaryBlue.withOpacity(0.06)
-                : Colors.white,
+                ? AppTheme.primaryBlue.withOpacity(isDark ? 0.18 : 0.06)
+                : cardBg,
             borderRadius:
                 BorderRadius.circular(AppTheme.radiusSmall),
             border: Border.all(
               color: selected
                   ? AppTheme.primaryBlue
-                  : AppTheme.divider,
+                  : borderColor,
               width: selected ? 2 : 1.5,
             ),
-            boxShadow: AppTheme.cardShadow,
+            boxShadow: isDark ? [] : AppTheme.cardShadow,
           ),
           child: Row(
             children: [
@@ -723,7 +738,7 @@ class _TestScreenState extends State<TestScreen>
                 decoration: BoxDecoration(
                   color: selected
                       ? AppTheme.primaryBlue
-                      : AppTheme.backgroundAlt,
+                      : (isDark ? AppTheme.darkBackgroundAlt : AppTheme.backgroundAlt),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -734,7 +749,7 @@ class _TestScreenState extends State<TestScreen>
                     fontSize: 14,
                     color: selected
                         ? Colors.white
-                        : AppTheme.secondaryText,
+                        : secCol,
                   ),
                 ),
               ),
@@ -749,8 +764,8 @@ class _TestScreenState extends State<TestScreen>
                         ? FontWeight.w600
                         : FontWeight.w400,
                     color: selected
-                        ? AppTheme.navyText
-                        : AppTheme.secondaryText,
+                        ? textCol
+                        : secCol,
                   ),
                 ),
               ),
@@ -900,6 +915,7 @@ class _TestScreenState extends State<TestScreen>
   }
 
   Widget _buildDotNavigator() {
+    final isDark = AppTheme.isDark(context);
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 6,
@@ -920,7 +936,7 @@ class _TestScreenState extends State<TestScreen>
                   ? AppTheme.primaryBlue
                   : answered
                       ? AppTheme.cyanAccent
-                      : AppTheme.divider,
+                      : (isDark ? AppTheme.darkDivider : AppTheme.divider),
               borderRadius: BorderRadius.circular(999),
             ),
           ),

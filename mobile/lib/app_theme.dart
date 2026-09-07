@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -17,6 +16,48 @@ class AppTheme {
   static const Color error           = Color(0xFFEF4444);
   static const Color warning         = Color(0xFFF59E0B);
   static const Color divider         = Color(0xFFE8EDF5);
+
+  // ── DARK MODE COLOR TOKENS ────────────────────────────────────────────────
+  static const Color darkBackground      = Color(0xFF080C15);
+  static const Color darkBackgroundAlt   = Color(0xFF0F172A);
+  static const Color darkNavyText        = Color(0xFFF8FAFC);
+  static const Color darkSecondaryText   = Color(0xFF94A3B8);
+  static const Color darkLightText       = Color(0xFF64748B);
+  static const Color darkCard            = Color(0xFF111827);
+  static const Color darkCardBorder      = Color(0xFF1E293B);
+  static const Color darkDivider         = Color(0xFF1E293B);
+
+  // ── DYNAMIC THEME ADAPTERS ────────────────────────────────────────────────
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  static Color dynamicBackground(BuildContext context) =>
+      isDark(context) ? darkBackground : background;
+
+  static Color dynamicCard(BuildContext context) =>
+      isDark(context) ? darkCard : cardWhite;
+
+  static Color dynamicText(BuildContext context) =>
+      isDark(context) ? darkNavyText : navyText;
+
+  static Color dynamicSecondaryText(BuildContext context) =>
+      isDark(context) ? darkSecondaryText : secondaryText;
+
+  static Color dynamicDivider(BuildContext context) =>
+      isDark(context) ? darkDivider : divider;
+
+  static RadialGradient dynamicAuroraGradient(BuildContext context) =>
+      RadialGradient(
+        center: Alignment.topCenter,
+        radius: 1.8,
+        colors: [
+          const Color(0x261E40AF),
+          const Color(0x190891B2),
+          const Color(0x146D28D9),
+          isDark(context) ? darkBackground : background,
+        ],
+        stops: const [0.0, 0.4, 0.7, 1.0],
+      );
 
   // ── GRADIENTS ─────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
@@ -274,6 +315,41 @@ class AppTheme {
       elevation: 0,
       scrolledUnderElevation: 0,
       iconTheme: IconThemeData(color: navyText),
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
+    ),
+  );
+
+  static ThemeData get darkTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: darkBackground,
+    cardColor: darkCard,
+    dividerColor: darkDivider,
+    textTheme: GoogleFonts.poppinsTextTheme().apply(
+      bodyColor: darkNavyText,
+      displayColor: darkNavyText,
+    ),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: primaryBlue,
+      brightness: Brightness.dark,
+      background: darkBackground,
+    ).copyWith(
+      primary: primaryBlue,
+      secondary: cyanAccent,
+      tertiary: lavenderAccent,
+      error: error,
+      surface: darkCard,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      iconTheme: IconThemeData(color: darkNavyText),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {

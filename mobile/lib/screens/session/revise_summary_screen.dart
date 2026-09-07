@@ -47,7 +47,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
 
     if (effectiveContent == null) {
       return Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,9 +63,10 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
     }
 
     final docTitle = effectiveContent.documentName.replaceAll('.pdf', '');
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -81,16 +82,18 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFFECFEFF), Color(0xFFE0F2FE)],
+                          colors: isDark
+                              ? [const Color(0xFF0E2A38), const Color(0xFF082032)]
+                              : [const Color(0xFFECFEFF), const Color(0xFFE0F2FE)],
                         ),
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusLarge),
                         border: Border.all(
                             color: AppTheme.cyanAccent.withOpacity(0.35)),
-                        boxShadow: AppTheme.cardShadow,
+                        boxShadow: isDark ? null : AppTheme.cardShadow,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +119,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                                 style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 16,
-                                  color: AppTheme.navyText,
+                                  color: AppTheme.dynamicText(context),
                                 ),
                               ),
                               const Spacer(),
@@ -125,9 +128,12 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppTheme.dynamicCard(context),
                                     shape: BoxShape.circle,
-                                    boxShadow: AppTheme.cardShadow,
+                                    border: isDark
+                                        ? Border.all(color: AppTheme.darkCardBorder)
+                                        : null,
+                                    boxShadow: isDark ? null : AppTheme.cardShadow,
                                   ),
                                   child: Icon(
                                     _isPlayingAudio
@@ -148,7 +154,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               height: 1.65,
-                              color: AppTheme.navyText,
+                              color: AppTheme.dynamicText(context),
                             ),
                           ),
                         ],
@@ -172,7 +178,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                             style: GoogleFonts.poppins(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.navyText,
+                              color: AppTheme.dynamicText(context),
                             ),
                           ),
                         ],
@@ -186,11 +192,14 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppTheme.dynamicCard(context),
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusMedium),
-                            boxShadow: AppTheme.cardShadow,
-                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                            boxShadow: isDark ? null : AppTheme.cardShadow,
+                            border: Border.all(
+                                color: isDark
+                                    ? AppTheme.darkCardBorder
+                                    : const Color(0xFFF1F5F9)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,7 +228,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                                   style: GoogleFonts.poppins(
                                     fontSize: 13,
                                     height: 1.55,
-                                    color: AppTheme.navyText,
+                                    color: AppTheme.dynamicText(context),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -337,9 +346,9 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundAlt,
+                  color: isDark ? AppTheme.darkBackgroundAlt : AppTheme.backgroundAlt,
                   borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                  border: Border.all(color: AppTheme.divider),
+                  border: Border.all(color: AppTheme.dynamicDivider(context)),
                 ),
                 child: const Icon(
                   Icons.mic_rounded,
@@ -355,6 +364,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
   }
 
   Widget _buildTopBar(BuildContext context, String title) {
+    final isDark = AppTheme.isDark(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
@@ -365,13 +375,14 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.dynamicCard(context),
                 shape: BoxShape.circle,
-                boxShadow: AppTheme.cardShadow,
+                border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                boxShadow: isDark ? null : AppTheme.cardShadow,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_rounded,
-                color: AppTheme.navyText,
+                color: AppTheme.dynamicText(context),
                 size: 20,
               ),
             ),
@@ -386,7 +397,7 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.navyText,
+                    color: AppTheme.dynamicText(context),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

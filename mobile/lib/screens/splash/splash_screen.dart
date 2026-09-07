@@ -58,10 +58,16 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.auroraGradient),
+        decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
         child: SafeArea(
           child: FadeTransition(
             opacity: _fadeIn,
@@ -100,7 +106,7 @@ class _SplashScreenState extends State<SplashScreen>
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w900,
                       fontSize: 40,
-                      color: AppTheme.navyText,
+                      color: textCol,
                       letterSpacing: -1,
                     ),
                   ),
@@ -110,7 +116,7 @@ class _SplashScreenState extends State<SplashScreen>
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w400,
                       fontSize: 16,
-                      color: AppTheme.secondaryText,
+                      color: secCol,
                     ),
                   ),
 
@@ -135,10 +141,11 @@ class _SplashScreenState extends State<SplashScreen>
                             height: 110,
                             margin: const EdgeInsets.only(bottom: 8),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: cardBg,
                               borderRadius:
                                   BorderRadius.circular(AppTheme.radiusSmall),
-                              boxShadow: AppTheme.cardShadow,
+                              border: Border.all(color: borderColor),
+                              boxShadow: isDark ? [] : AppTheme.cardShadow,
                             ),
                             child: const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -161,9 +168,10 @@ class _SplashScreenState extends State<SplashScreen>
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: cardBg,
                               borderRadius: BorderRadius.circular(20),
-                              boxShadow: AppTheme.cardShadow,
+                              border: Border.all(color: borderColor),
+                              boxShadow: isDark ? [] : AppTheme.cardShadow,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -206,7 +214,7 @@ class _SplashScreenState extends State<SplashScreen>
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w400,
                         fontSize: 14,
-                        color: AppTheme.secondaryText,
+                        color: secCol,
                         height: 1.6,
                       ),
                     ),
@@ -231,7 +239,7 @@ class _SplashScreenState extends State<SplashScreen>
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: AppTheme.divider,
+                          color: isDark ? AppTheme.darkDivider : AppTheme.divider,
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
@@ -240,7 +248,7 @@ class _SplashScreenState extends State<SplashScreen>
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: AppTheme.divider,
+                          color: isDark ? AppTheme.darkDivider : AppTheme.divider,
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
