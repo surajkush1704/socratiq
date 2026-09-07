@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
+import 'detail_explanation_screen.dart';
+import 'revise_summary_screen.dart';
 import 'learn_screen.dart';
 import 'test_screen.dart';
 
@@ -12,7 +14,8 @@ class ModeSelectScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ContentModel? effectiveContent = content ?? (ModalRoute.of(context)?.settings.arguments as ContentModel?);
+    final ContentModel? effectiveContent = content ??
+        (ModalRoute.of(context)?.settings.arguments as ContentModel?);
 
     if (effectiveContent == null) {
       return Scaffold(
@@ -28,15 +31,18 @@ class ModeSelectScreen extends StatelessWidget {
       );
     }
 
+    final testCount =
+        effectiveContent.extractedText.length > 5000 ? 20 : 15;
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back
+              // Back button
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
@@ -47,12 +53,16 @@ class ModeSelectScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: AppTheme.cardShadow,
                   ),
-                  child: const Icon(Icons.arrow_back_rounded,
-                      color: AppTheme.navyText, size: 20),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppTheme.navyText,
+                    size: 20,
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-              // Title
+              const SizedBox(height: 20),
+
+              // Document Title & Subtitle
               Text(
                 effectiveContent.documentName.replaceAll('.pdf', ''),
                 style: GoogleFonts.poppins(
@@ -66,60 +76,115 @@ class ModeSelectScreen extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'How do you want to study?',
+                'Select study format for this chapter',
                 style: GoogleFonts.poppins(
-                  fontSize: 15,
+                  fontSize: 14,
                   color: AppTheme.secondaryText,
                 ),
               ),
-              const SizedBox(height: 32),
-              // Mode cards
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildModeCard(
-                      context: context,
-                      bgColor: const Color(0xFFEEF2FF),
-                      iconColor: AppTheme.primaryBlue,
-                      icon: Icons.menu_book_rounded,
-                      title: 'Learn',
-                      description:
-                          'I explain concepts step by step,\nthen quiz you to check understanding.',
-                      buttonLabel: 'Start Learning',
-                      buttonGradient: AppTheme.primaryGradient,
-                      mode: 'learn',
-                      targetContent: effectiveContent,
+              const SizedBox(height: 24),
+
+              // 1. Learn Mode Card
+              _buildModeCard(
+                context: context,
+                bgColor: const Color(0xFFEEF2FF),
+                iconColor: AppTheme.primaryBlue,
+                icon: Icons.auto_stories_rounded,
+                title: 'Learn',
+                badgeText: 'Step-by-Step Breakdown',
+                description:
+                    'Read an in-depth, structured explanation of all key concepts, theorems, and real-world examples.',
+                buttonLabel: 'Read Detailed Explanation',
+                buttonGradient: AppTheme.primaryGradient,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DetailExplanationScreen(
+                        content: effectiveContent,
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    _buildModeCard(
-                      context: context,
-                      bgColor: const Color(0xFFECFEFF),
-                      iconColor: AppTheme.cyanAccent,
-                      icon: Icons.refresh_rounded,
-                      title: 'Revise',
-                      description:
-                          'Skip the explanation.\nJump straight to questions for quick revision.',
-                      buttonLabel: 'Start Revising',
-                      buttonGradient: AppTheme.cyanGradient,
-                      mode: 'revise',
-                      targetContent: effectiveContent,
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 2. Revise Mode Card
+              _buildModeCard(
+                context: context,
+                bgColor: const Color(0xFFECFEFF),
+                iconColor: AppTheme.cyanAccent,
+                icon: Icons.bolt_rounded,
+                title: 'Revise',
+                badgeText: 'Simple High-Yield Summary',
+                description:
+                    'Quick revision notes, simplified core takeaways, and flash-summary cards for rapid retention.',
+                buttonLabel: 'Open Quick Summary',
+                buttonGradient: AppTheme.cyanGradient,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReviseSummaryScreen(
+                        content: effectiveContent,
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    _buildModeCard(
-                      context: context,
-                      bgColor: const Color(0xFFF5F3FF),
-                      iconColor: AppTheme.lavenderAccent,
-                      icon: Icons.quiz_rounded,
-                      title: 'Test Yourself',
-                      description:
-                          'Full scored test with no hints.\nResults and feedback at the end.',
-                      buttonLabel: 'Start Test',
-                      buttonGradient: AppTheme.lavenderGradient,
-                      mode: 'test',
-                      targetContent: effectiveContent,
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 3. Talk to Tutor Mode Card
+              _buildModeCard(
+                context: context,
+                bgColor: const Color(0xFFFAF5FF),
+                iconColor: AppTheme.lavenderAccent,
+                icon: Icons.record_voice_over_rounded,
+                title: 'Talk to Tutor',
+                badgeText: 'Interactive AI Voice',
+                description:
+                    'Live conversational audio session. Discuss doubts, practice answering questions, and receive verbal feedback.',
+                buttonLabel: 'Start Voice Session',
+                buttonGradient: AppTheme.lavenderGradient,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LearnScreen(
+                        content: effectiveContent,
+                        mode: 'learn',
+                      ),
                     ),
-                  ],
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // 4. Test Yourself Mode Card
+              _buildModeCard(
+                context: context,
+                bgColor: const Color(0xFFFFFBEB),
+                iconColor: const Color(0xFFD97706),
+                icon: Icons.assignment_turned_in_rounded,
+                title: 'Test Yourself',
+                badgeText: '$testCount Questions · 5E / 5M / 5H',
+                description:
+                    'Adaptive scored test with balanced difficulty tiers (Easy, Medium, Hard). Complete test analysis at the end.',
+                buttonLabel: 'Start $testCount-Question Test',
+                buttonGradient: const LinearGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
                 ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TestScreen(
+                        content: effectiveContent,
+                        questionCount: testCount,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -134,106 +199,97 @@ class ModeSelectScreen extends StatelessWidget {
     required Color iconColor,
     required IconData icon,
     required String title,
+    required String badgeText,
     required String description,
     required String buttonLabel,
     required LinearGradient buttonGradient,
-    required String mode,
-    required ContentModel targetContent,
+    required VoidCallback onTap,
   }) {
-    return Expanded(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXS),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 20,
-                    color: AppTheme.navyText,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              description,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AppTheme.secondaryText,
-                height: 1.55,
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () {
-                if (mode == 'test') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TestScreen(
-                        content: targetContent,
-                        questionCount: 5,
-                      ),
-                    ),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LearnScreen(
-                        content: targetContent,
-                        mode: mode,
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 12, horizontal: 20),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: iconColor.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  gradient: buttonGradient,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                  boxShadow: [
-                    BoxShadow(
-                      color: iconColor.withOpacity(0.30),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
+                  color: iconColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXS),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        color: AppTheme.navyText,
+                      ),
+                    ),
+                    Text(
+                      badgeText,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        color: iconColor,
+                      ),
                     ),
                   ],
                 ),
-                child: Text(
-                  buttonLabel,
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.white,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            description,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppTheme.secondaryText,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 20),
+              decoration: BoxDecoration(
+                gradient: buttonGradient,
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                boxShadow: [
+                  BoxShadow(
+                    color: iconColor.withOpacity(0.28),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
+                ],
+              ),
+              child: Text(
+                buttonLabel,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: Colors.white,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -426,3 +426,46 @@ async def end_session(session_id: str, user_id: str) -> dict:
 
 def get_session(session_id: str) -> Optional[SessionState]:
     return _sessions.get(session_id)
+
+
+async def add_document_to_session(
+    session_id: str,
+    document_name: str,
+    summary: str,
+    key_points: List[str],
+    topics: List[str],
+) -> dict:
+    """
+    Appends a new document or chapter's context to an active session.
+    Combines summaries and topics so the tutor can seamlessly teach across documents.
+    """
+    state = _sessions.get(session_id)
+    if not state:
+        raise ValueError('Session not found')
+
+    if state.document_name and state.document_name not in ('General Topic', 'Any Topic'):
+        state.document_name = f"{state.document_name} & {document_name}"
+        state.summary = f"{state.summary}\n\n[Chapter: {document_name}]\n{summary}"
+    else:
+        state.document_name = document_name
+        state.summary = summary
+
+    for kp in key_points:
+        if kp not in state.key_points:
+            state.key_points.append(kp)
+    for t in topics:
+        if t not in state.topics:
+            state.topics.append(t)
+
+    ack_msg = (
+        f"I've analyzed and loaded '{document_name}' into our session! "
+        f"I'm ready to walk you through its concepts or answer any questions."
+    )
+    state.history.append({'role': 'ai', 'content': ack_msg})
+
+    return {
+        'session_id': session_id,
+        'document_name': state.document_name,
+        'ack_message': ack_msg,
+        'topics': state.topics,
+    }

@@ -6,6 +6,7 @@ import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/glass_nav.dart';
 import '../session/mode_select.dart';
+import '../session/learn_screen.dart';
 import '../upload/upload_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -83,8 +84,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _onNavTap(int index) {
     if (index == 0) Navigator.pushReplacementNamed(context, '/home');
-    if (index == 2) Navigator.pushReplacementNamed(context, '/dashboard');
-    if (index == 3) Navigator.pushReplacementNamed(context, '/settings');
+    if (index == 1) return;
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+      );
+    }
+    if (index == 3) Navigator.pushReplacementNamed(context, '/dashboard');
+    if (index == 4) Navigator.pushReplacementNamed(context, '/settings');
   }
 
   @override
@@ -158,15 +166,39 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
+          GestureDetector(
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
+            },
+            child: Container(
+              width: 38,
+              height: 38,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: AppTheme.navyText,
+                size: 20,
+              ),
+            ),
+          ),
           Expanded(
             child: Text(
               'My Library',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
-                fontSize: 28,
+                fontSize: 26,
                 color: AppTheme.navyText,
                 letterSpacing: -0.5,
               ),

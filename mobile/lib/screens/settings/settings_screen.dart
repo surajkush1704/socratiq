@@ -7,6 +7,7 @@ import '../../app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../widgets/glass_nav.dart';
+import '../session/learn_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 import '../legal/terms_screen.dart';
 import '../legal/about_screen.dart';
@@ -20,28 +21,39 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  int _voiceSpeed = 1; // 0=Slow, 1=Normal, 2=Fast
-  String _selectedVoice = 'aura-luna-en';
+  User? _user;
   String _version = '1.0.0';
-  final _user = FirebaseAuth.instance.currentUser;
+  int _voiceSpeed = 1; // 0=slow, 1=normal, 2=fast
+  String _selectedVoice = 'aura-luna-en';
 
   @override
   void initState() {
     super.initState();
-    _loadVersion();
+    _user = FirebaseAuth.instance.currentUser;
+    _loadAppInfo();
+    const speeds = {'slow': 0, 'normal': 1, 'fast': 2};
+    _voiceSpeed = speeds[ApiService.voiceSpeed] ?? 1;
+    _selectedVoice = ApiService.voiceId;
   }
 
-  Future<void> _loadVersion() async {
+  Future<void> _loadAppInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      setState(() => _version = info.version);
+      setState(() => _version = '${info.version} (${info.buildNumber})');
     } catch (_) {}
   }
 
   void _onNavTap(int index) {
     if (index == 0) Navigator.pushReplacementNamed(context, '/home');
     if (index == 1) Navigator.pushReplacementNamed(context, '/library');
-    if (index == 2) Navigator.pushReplacementNamed(context, '/dashboard');
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+      );
+    }
+    if (index == 3) Navigator.pushReplacementNamed(context, '/dashboard');
+    if (index == 4) return;
   }
 
   Future<void> _clearCache() async {
@@ -142,12 +154,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Title
-                  Text('Settings',
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 28,
-                          color: AppTheme.navyText,
-                          letterSpacing: -0.5)),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          } else {
+                            Navigator.pushReplacementNamed(context, '/home');
+                          }
+                        },
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: AppTheme.cardShadow,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: AppTheme.navyText,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      Text('Settings',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 26,
+                              color: AppTheme.navyText,
+                              letterSpacing: -0.5)),
+                    ],
+                  ),
                   const SizedBox(height: 20),
 
                   // ── ACCOUNT SECTION ──────────────────────────────────
@@ -343,7 +383,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             Positioned(
               bottom: 0, left: 0, right: 0,
-              child: GlassNav(currentIndex: 3, onTap: _onNavTap),
+              child: GlassNav(currentIndex: 4, onTap: _onNavTap),
             ),
           ],
         ),

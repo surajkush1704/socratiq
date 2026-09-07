@@ -5,6 +5,7 @@ import '../../app_theme.dart';
 import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/glass_nav.dart';
+import '../session/learn_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -60,7 +61,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _onNavTap(int index) {
     if (index == 0) Navigator.pushReplacementNamed(context, '/home');
     if (index == 1) Navigator.pushReplacementNamed(context, '/library');
-    if (index == 3) Navigator.pushReplacementNamed(context, '/settings');
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+      );
+    }
+    if (index == 3) return;
+    if (index == 4) Navigator.pushReplacementNamed(context, '/settings');
   }
 
   @override
@@ -104,7 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             Positioned(
               bottom: 0, left: 0, right: 0,
-              child: GlassNav(currentIndex: 2, onTap: _onNavTap),
+              child: GlassNav(currentIndex: 3, onTap: _onNavTap),
             ),
           ],
         ),
@@ -117,12 +125,36 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildHeader() {
     return Row(
       children: [
+        GestureDetector(
+          onTap: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          },
+          child: Container(
+            width: 38,
+            height: 38,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppTheme.navyText,
+              size: 20,
+            ),
+          ),
+        ),
         Expanded(
           child: Text(
             'Your Progress',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
-              fontSize: 28,
+              fontSize: 26,
               color: AppTheme.navyText,
               letterSpacing: -0.5,
             ),

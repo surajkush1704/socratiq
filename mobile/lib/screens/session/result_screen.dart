@@ -126,6 +126,30 @@ class _ResultScreenState extends State<ResultScreen>
   Widget _buildTopBar(BuildContext context) {
     return Row(
       children: [
+        GestureDetector(
+          onTap: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false);
+            }
+          },
+          child: Container(
+            width: 38,
+            height: 38,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppTheme.navyText,
+              size: 20,
+            ),
+          ),
+        ),
         Text(
           'Results',
           style: GoogleFonts.poppins(
@@ -135,14 +159,17 @@ class _ResultScreenState extends State<ResultScreen>
           ),
         ),
         const Spacer(),
-        Text(
-          widget.content.documentName.replaceAll('.pdf', ''),
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: AppTheme.secondaryText,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 160),
+          child: Text(
+            widget.content.documentName.replaceAll('.pdf', ''),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppTheme.secondaryText,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

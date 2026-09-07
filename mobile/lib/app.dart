@@ -11,6 +11,9 @@ import 'screens/legal/privacy_policy_screen.dart';
 import 'screens/legal/terms_screen.dart';
 import 'screens/legal/about_screen.dart';
 import 'screens/account/delete_account_screen.dart';
+import 'screens/session/learn_screen.dart';
+import 'screens/session/detail_explanation_screen.dart';
+import 'screens/session/revise_summary_screen.dart';
 
 class SocratiqApp extends StatelessWidget {
   const SocratiqApp({super.key});
@@ -29,6 +32,9 @@ class SocratiqApp extends StatelessWidget {
         '/upload':         (_) => const UploadScreen(),
         '/dashboard':      (_) => const DashboardScreen(),
         '/settings':       (_) => const SettingsScreen(),
+        '/voice-agent':    (_) => const LearnScreen(mode: 'learn'),
+        '/learn-detail':   (_) => const DetailExplanationScreen(),
+        '/revise-summary': (_) => const ReviseSummaryScreen(),
         '/privacy-policy': (_) => const PrivacyPolicyScreen(),
         '/terms':          (_) => const TermsScreen(),
         '/about':          (_) => const AboutScreen(),

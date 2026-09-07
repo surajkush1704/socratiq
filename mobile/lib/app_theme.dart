@@ -275,5 +275,11 @@ class AppTheme {
       scrolledUnderElevation: 0,
       iconTheme: IconThemeData(color: navyText),
     ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
+    ),
   );
 }

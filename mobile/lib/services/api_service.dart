@@ -92,6 +92,29 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> addDocumentToSession({
+    required String sessionId,
+    required String documentName,
+    required String summary,
+    required List<String> keyPoints,
+    required List<String> topics,
+  }) async {
+    try {
+      print('[API] Adding document to session: $documentName (session $sessionId)');
+      final response = await _dio.post('/session/add-document', data: {
+        'session_id': sessionId,
+        'document_name': documentName,
+        'summary': summary,
+        'key_points': keyPoints,
+        'topics': topics,
+      });
+      print('[API] Document added to session: ${response.data}');
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    }
+  }
+
   Future<Map<String, dynamic>> interact({
     required String sessionId,
     required String userInput,

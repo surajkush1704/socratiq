@@ -13,7 +13,7 @@ class TestScreen extends StatefulWidget {
 
   const TestScreen({
     required this.content,
-    this.questionCount = 5,
+    this.questionCount = 15,
     super.key,
   });
 
@@ -82,6 +82,7 @@ class _TestScreenState extends State<TestScreen>
         options: List<String>.from(q['options'] ?? []),
         correctIndex: q['correct_index'] as int? ?? 0,
         explanation: q['explanation'] as String? ?? '',
+        difficulty: (q['difficulty'] as String? ?? 'medium').toLowerCase(),
       )).toList();
 
       if (questions.isEmpty) {
@@ -592,6 +593,29 @@ class _TestScreenState extends State<TestScreen>
   }
 
   Widget _buildQuestionCard(MCQModel question) {
+    final diff = question.difficulty.toLowerCase();
+    Color diffColor;
+    Color diffBg;
+    String diffLabel;
+    IconData diffIcon;
+
+    if (diff == 'easy') {
+      diffColor = const Color(0xFF059669);
+      diffBg = const Color(0xFFD1FAE5);
+      diffLabel = 'Easy';
+      diffIcon = Icons.sentiment_satisfied_alt_rounded;
+    } else if (diff == 'hard') {
+      diffColor = const Color(0xFFDC2626);
+      diffBg = const Color(0xFFFEE2E2);
+      diffLabel = 'Hard';
+      diffIcon = Icons.local_fire_department_rounded;
+    } else {
+      diffColor = const Color(0xFFD97706);
+      diffBg = const Color(0xFFFEF3C7);
+      diffLabel = 'Medium';
+      diffIcon = Icons.trending_up_rounded;
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -603,22 +627,51 @@ class _TestScreenState extends State<TestScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Question number badge
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-            ),
-            child: Text(
-              'Q${_currentIndex + 1}',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryBlue,
+          Row(
+            children: [
+              // Question number badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                ),
+                child: Text(
+                  'Q${_currentIndex + 1}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              // Difficulty badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: diffBg,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(diffIcon, size: 13, color: diffColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      diffLabel,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: diffColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Text(

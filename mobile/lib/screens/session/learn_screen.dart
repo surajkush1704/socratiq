@@ -1,11 +1,14 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../models/mcq_model.dart';
 import '../../services/api_service.dart';
+import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/voice_service.dart';
 import '../../widgets/voice_orb_painter.dart';
@@ -14,12 +17,12 @@ import '../session/result_screen.dart';
 enum VoiceState { idle, listening, thinking, speaking }
 
 class LearnScreen extends StatefulWidget {
-  final ContentModel content;
+  final ContentModel? content;
   final String mode;
 
   const LearnScreen({
-    required this.content,
-    required this.mode,
+    this.content,
+    this.mode = 'learn',
     super.key,
   });
 
@@ -38,6 +41,8 @@ class _LearnScreenState extends State<LearnScreen>
   String? _sessionId;
   bool _sessionLoading = true;
   String? _sessionError;
+  final List<String> _attachedDocumentNames = [];
+  bool _isUploadingPdf = false;
 
   // ── UI state ───────────────────────────────────────────────────────────────
   VoiceState _voiceState = VoiceState.idle;
@@ -78,6 +83,9 @@ class _LearnScreenState extends State<LearnScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.content != null) {
+      _attachedDocumentNames.add(widget.content!.documentName);
+    }
     _setupAnimations();
     _checkMicPermission();
     _startSession();
@@ -138,11 +146,16 @@ class _LearnScreenState extends State<LearnScreen>
         _statusLabel = 'Starting session...';
       });
 
+      final docName = widget.content?.documentName ?? 'General Study Session';
+      final summary = widget.content?.summary ?? '';
+      final keyPoints = widget.content?.keyPoints ?? <String>[];
+      final topics = widget.content?.topics ?? <String>[];
+
       final result = await _api.startSession(
-        documentName: widget.content.documentName,
-        summary: widget.content.summary,
-        keyPoints: widget.content.keyPoints,
-        topics: widget.content.topics,
+        documentName: docName,
+        summary: summary,
+        keyPoints: keyPoints,
+        topics: topics,
         mode: widget.mode,
       );
 
@@ -164,15 +177,17 @@ class _LearnScreenState extends State<LearnScreen>
 
     } catch (e) {
       print('[LEARN] Session start error: $e');
+      final fallbackDoc = widget.content != null
+          ? '"${widget.content!.documentName}"'
+          : 'any topic';
       setState(() {
         _sessionLoading = false;
         _sessionError = e.toString();
         _statusLabel = 'Tap and hold mic to speak';
         _messages.add({
           'role': 'ai',
-          'content': 'Hello! I\'m ready to help you study '
-              '"${widget.content.documentName}". '
-              'What would you like to learn?',
+          'content': 'Hello! I\'m your AI Tutor ready to help you prepare for $fallbackDoc. '
+              'What would you like to learn today? You can also upload a PDF anytime.',
         });
       });
     }
@@ -472,6 +487,89 @@ class _LearnScreenState extends State<LearnScreen>
     );
   }
 
+  // ── IN-SESSION PDF UPLOAD (COMBINED CHAPTER) ──────────────────────────────
+
+  Future<void> _uploadPdfInSession() async {
+    if (_isUploadingPdf || _isAiThinking || _isSpeakingTTS) return;
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+      if (result == null || result.files.single.path == null) return;
+
+      setState(() {
+        _isUploadingPdf = true;
+        _statusLabel = 'Adding PDF to session chapter...';
+      });
+
+      final path = result.files.single.path!;
+      final file = File(path);
+      final fileName = result.files.single.name;
+
+      // 1. Upload PDF
+      final uploadResult = await _api.uploadPdf(file);
+      final extractedText = uploadResult['extracted_text'] as String? ?? '';
+
+      // 2. Process with AI
+      final processResult = await _api.processDocument(extractedText, fileName);
+      final summary = processResult['summary'] as String? ?? '';
+      final keyPoints = List<String>.from(processResult['key_points'] ?? []);
+      final topics = List<String>.from(processResult['topics'] ?? []);
+
+      // 3. Save to local Hive so it's in Library
+      final newContent = ContentModel(
+        documentName: fileName,
+        extractedText: extractedText,
+        summary: summary,
+        keyPoints: keyPoints,
+        topics: topics,
+      );
+      await HiveService.saveContent(newContent);
+
+      // 4. Merge into active session state on backend
+      String ackMsg = 'I have added "$fileName" to our combined study chapter. We can now study it together!';
+      if (_sessionId != null) {
+        final addRes = await _api.addDocumentToSession(
+          sessionId: _sessionId!,
+          documentName: fileName,
+          summary: summary,
+          keyPoints: keyPoints,
+          topics: topics,
+        );
+        ackMsg = addRes['ack_message'] as String? ?? ackMsg;
+      }
+
+      setState(() {
+        _attachedDocumentNames.add(fileName);
+        _isUploadingPdf = false;
+        _statusLabel = 'Tap and hold mic to speak';
+        _messages.add({'role': 'ai', 'content': ackMsg});
+      });
+
+      _scrollToBottom();
+      await _speakAiResponse(ackMsg);
+
+    } catch (e) {
+      print('[LEARN] In-session upload error: $e');
+      setState(() {
+        _isUploadingPdf = false;
+        _statusLabel = 'Upload failed. Tap mic to continue.';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to add PDF: $e', style: GoogleFonts.poppins(fontSize: 13)),
+          backgroundColor: AppTheme.error,
+        ));
+      }
+    }
+  }
+
+  void _onBackPressed() {
+    _endSession();
+  }
+
   // ── END SESSION ───────────────────────────────────────────────────────────
 
   Future<void> _endSession() async {
@@ -483,17 +581,17 @@ class _LearnScreenState extends State<LearnScreen>
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-        title: Text('End Session?',
+        title: Text('Leave Session?',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
         content: Text(
-          'Your progress will be saved.',
+          'Do you want to end this study session? Your progress will be saved.',
           style: GoogleFonts.poppins(
               fontSize: 14, color: AppTheme.secondaryText),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Continue',
+            child: Text('Stay',
                 style: GoogleFonts.poppins(color: AppTheme.primaryBlue)),
           ),
           TextButton(
@@ -516,15 +614,21 @@ class _LearnScreenState extends State<LearnScreen>
         );
         final durationSec = sessionEndResult['duration_sec'] as int? ?? 0;
 
+        final docName = widget.content?.documentName ??
+            (_attachedDocumentNames.isNotEmpty
+                ? _attachedDocumentNames.join(' + ')
+                : 'General Study Session');
+        final topics = widget.content?.topics ?? <String>[];
+
         await SyncService.syncSession(
           sessionId: _sessionId!,
-          documentName: widget.content.documentName,
+          documentName: docName,
           mode: widget.mode,
           durationSec: durationSec > 0 ? durationSec : 60,
           score: _questionsAsked > 0 ? _scoreSum / _questionsAsked : 0.0,
           questionsAttempted: _questionsAsked,
           questionsCorrect: _questionsCorrect,
-          topics: widget.content.topics,
+          topics: topics,
         ).timeout(const Duration(seconds: 3), onTimeout: () => {});
       } catch (e) {
         print('[LEARN] Session sync error (non-fatal): $e');
@@ -535,11 +639,22 @@ class _LearnScreenState extends State<LearnScreen>
 
     if (_askedQuestions.isNotEmpty) {
       final avgScore = _scoreSum / _questionsAsked.clamp(1, 9999);
+      final effectiveDoc = widget.content ??
+          ContentModel(
+            documentName: _attachedDocumentNames.isNotEmpty
+                ? _attachedDocumentNames.join(' + ')
+                : 'General Topic Session',
+            extractedText: '',
+            summary: 'General audio tutoring session',
+            keyPoints: [],
+            topics: [],
+          );
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => ResultScreen(
-            content: widget.content,
+            content: effectiveDoc,
             score: avgScore,
             totalQuestions: _askedQuestions.length,
             correctAnswers: _questionsCorrect,
@@ -689,25 +804,50 @@ class _LearnScreenState extends State<LearnScreen>
   // ── TOP BAR ───────────────────────────────────────────────────────────────
 
   Widget _buildTopBar() {
+    final docTitle = _attachedDocumentNames.isNotEmpty
+        ? (_attachedDocumentNames.length > 1
+            ? 'Chapter (${_attachedDocumentNames.length} PDFs)'
+            : _attachedDocumentNames.first.replaceAll('.pdf', ''))
+        : (widget.content != null
+            ? widget.content!.documentName.replaceAll('.pdf', '')
+            : 'Open Topic');
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
         children: [
+          // Top-left Back Button
+          GestureDetector(
+            onTap: _onBackPressed,
+            child: Container(
+              width: 36,
+              height: 36,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+          // Topic/Mode badge
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  widget.mode[0].toUpperCase() +
-                      widget.mode.substring(1),
+                  widget.mode[0].toUpperCase() + widget.mode.substring(1),
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -715,18 +855,14 @@ class _LearnScreenState extends State<LearnScreen>
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text('·',
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.4))),
+                      style: TextStyle(color: Colors.white.withOpacity(0.4))),
                 ),
                 ConstrainedBox(
-                  constraints:
-                      const BoxConstraints(maxWidth: 130),
+                  constraints: const BoxConstraints(maxWidth: 120),
                   child: Text(
-                    widget.content.documentName
-                        .replaceAll('.pdf', ''),
+                    docTitle,
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: Colors.white,
@@ -739,11 +875,56 @@ class _LearnScreenState extends State<LearnScreen>
             ),
           ),
           const Spacer(),
+          // In-Session PDF Upload Button
+          GestureDetector(
+            onTap: _uploadPdfInSession,
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isUploadingPdf
+                    ? AppTheme.primaryBlue.withOpacity(0.4)
+                    : Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isUploadingPdf)
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.upload_file_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '+ PDF',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           if (_questionsAsked > 0)
             Container(
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(999),
@@ -751,7 +932,7 @@ class _LearnScreenState extends State<LearnScreen>
               child: Text(
                 '$_questionsCorrect/$_questionsAsked ✓',
                 style: GoogleFonts.poppins(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -761,8 +942,7 @@ class _LearnScreenState extends State<LearnScreen>
             onTap: () => setState(() => _showTextInput = !_showTextInput),
             child: Container(
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
               decoration: BoxDecoration(
                 color: _showTextInput
                     ? AppTheme.cyanAccent.withOpacity(0.25)
@@ -786,18 +966,16 @@ class _LearnScreenState extends State<LearnScreen>
           GestureDetector(
             onTap: _endSession,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppTheme.error.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                    color: AppTheme.error.withOpacity(0.4)),
+                border: Border.all(color: AppTheme.error.withOpacity(0.4)),
               ),
               child: Text(
                 'End',
                 style: GoogleFonts.poppins(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.error,
                 ),

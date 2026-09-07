@@ -9,6 +9,7 @@ import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/glass_nav.dart';
 import '../session/mode_select.dart';
+import '../session/learn_screen.dart';
 import '../upload/upload_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,32 +24,38 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ContentModel> _documents = [];
   Map<String, dynamic> _userStats = {};
   bool _isLoadingStats = true;
+  String _greeting = 'Welcome back';
 
-  // User info
+  // Auth user
   User? _user;
-  String _greeting = '';
 
   @override
   void initState() {
     super.initState();
     _user = FirebaseAuth.instance.currentUser;
-    _greeting = _getGreeting();
+    _setGreeting();
     _loadLocalData();
     _loadCloudData();
   }
 
-  String _getGreeting() {
+  void _setGreeting() {
     final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) return 'Good morning';
-    if (hour >= 12 && hour < 17) return 'Good afternoon';
-    if (hour >= 17 && hour < 21) return 'Good evening';
-    return 'Study late? 👀';
+    if (hour < 12) {
+      _greeting = 'Good morning';
+    } else if (hour < 17) {
+      _greeting = 'Good afternoon';
+    } else {
+      _greeting = 'Good evening';
+    }
   }
 
   void _loadLocalData() {
-    setState(() {
-      _documents = HiveService.getAllContent();
-    });
+    final docs = HiveService.getAllContent();
+    if (mounted) {
+      setState(() {
+        _documents = docs;
+      });
+    }
   }
 
   Future<void> _loadCloudData() async {
@@ -72,8 +79,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onNavTap(int index) {
     if (index == 0) return;
     if (index == 1) Navigator.pushReplacementNamed(context, '/library');
-    if (index == 2) Navigator.pushReplacementNamed(context, '/dashboard');
-    if (index == 3) Navigator.pushReplacementNamed(context, '/settings');
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+      );
+    }
+    if (index == 3) Navigator.pushReplacementNamed(context, '/dashboard');
+    if (index == 4) Navigator.pushReplacementNamed(context, '/settings');
   }
 
   @override
@@ -125,7 +138,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── 1. TOP BAR ────────────────────────────────────────────────────────────
 
   Widget _buildTopBar() {
-    final name = _user?.displayName?.split(' ').first ?? 'there';
+    String name = 'there';
+    if (_user?.displayName != null && _user!.displayName!.trim().isNotEmpty) {
+      name = _user!.displayName!.trim().split(' ').first;
+    } else if (_user?.email != null && _user!.email!.trim().isNotEmpty) {
+      final prefix = _user!.email!.split('@').first;
+      name = prefix.isNotEmpty
+          ? '${prefix[0].toUpperCase()}${prefix.substring(1)}'
+          : 'Learner';
+    }
     final photoUrl = _user?.photoURL;
 
     return Padding(
@@ -264,16 +285,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Inverted Talk to Tutor CTA
                     GestureDetector(
                       onTap: () {
-                        if (_documents.isNotEmpty) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ModeSelectScreen(content: _documents.last),
-                            ),
-                          );
-                        } else {
-                          Navigator.pushReplacementNamed(context, '/library');
-                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LearnScreen(mode: 'learn'),
+                          ),
+                        );
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -322,12 +339,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 10),
           Image.asset(
             'assets/images/logo.png',
-            width: 75,
-            height: 75,
+            width: 94,
+            height: 94,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => const Icon(
               Icons.school_rounded,
-              size: 60,
+              size: 75,
               color: Colors.white,
             ),
           ),
@@ -563,16 +580,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                if (_documents.isNotEmpty) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ModeSelectScreen(content: _documents.last),
-                    ),
-                  );
-                } else {
-                  Navigator.pushReplacementNamed(context, '/library');
-                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LearnScreen(mode: 'learn'),
+                  ),
+                );
               },
               child: Container(
                 padding: const EdgeInsets.all(14),

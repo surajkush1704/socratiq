@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict
 from models.session import SessionStartRequest, SessionStartResponse
-from orchestrator import start_session, end_session, get_session
+from orchestrator import start_session, end_session, get_session, add_document_to_session
 from agents.mcq_agent import generate_test_set
 from agents.evaluation_agent import evaluate_answer
 
@@ -44,7 +44,7 @@ class GenerateTestRequest(BaseModel):
     summary: str
     key_points: List[str]
     topics: List[str]
-    question_count: int = 5  # default 5, max 10
+    question_count: int = 15  # default 15 (5E+5M+5H)
 
 
 class GenerateTestResponse(BaseModel):
@@ -62,7 +62,7 @@ async def generate_test(request: GenerateTestRequest):
     backend calls until submission.
     """
     try:
-        count = min(request.question_count, 10)  # cap at 10
+        count = min(request.question_count, 30)  # cap at 30
         print(f'[SESSION ROUTER] Generating test: '
               f'{count} questions for "{request.document_name}"')
 
@@ -224,4 +224,36 @@ async def submit_test(request: SubmitTestRequest):
 
     except Exception as e:
         print(f'[SESSION ROUTER] Submit test error: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── ADD DOCUMENT TO ACTIVE SESSION ───────────────────────────────────────────
+
+class AddDocumentRequest(BaseModel):
+    session_id: str
+    document_name: str
+    summary: str
+    key_points: List[str]
+    topics: List[str]
+
+
+@router.post('/add-document')
+async def add_document(request: AddDocumentRequest):
+    """
+    Appends a newly processed PDF's content to an active session,
+    enabling combined multi-document voice tutoring (project/chapters).
+    """
+    try:
+        result = await add_document_to_session(
+            session_id=request.session_id,
+            document_name=request.document_name,
+            summary=request.summary,
+            key_points=request.key_points,
+            topics=request.topics,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f'[SESSION ROUTER] Add document error: {e}')
         raise HTTPException(status_code=500, detail=str(e))
