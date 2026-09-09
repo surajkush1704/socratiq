@@ -225,35 +225,58 @@ class _LoginScreenState extends State<LoginScreen> {
                       minHeight: math.max(0.0, constraints.maxHeight - 56),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          _isSignUp ? 'Create account' : 'Welcome',
-                          style: GoogleFonts.dmSans(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 30,
-                            color: textCol,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          _isSignUp
-                              ? 'Start learning smarter today'
-                              : 'to SocratiQ',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 18,
-                            color: AppTheme.primaryBlue,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Your personal AI tutor awaits.',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 14,
-                            color: secCol,
+                        // Top Middle Brand Section
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.primaryBlue.withValues(alpha: 0.35),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Image.asset(
+                                    'assets/images/logo.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                'SocratiQ',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.dmSans(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 38,
+                                  color: textCol,
+                                  letterSpacing: -1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Your personal AI tutor awaits.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: secCol,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -269,6 +292,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Column(
                             children: [
+                              Text(
+                                _isSignUp ? 'Create account' : 'Welcome',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: textCol,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
                               // Google button
                               GestureDetector(
                                 onTap: (_loading || _isRateLimited) ? null : _handleGoogle,
