@@ -7,6 +7,7 @@ import '../../models/mcq_model.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/app_page_route.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 import 'result_screen.dart';
 
 class TestScreen extends StatefulWidget {
@@ -388,14 +389,17 @@ class _TestScreenState extends State<TestScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: _loadingQuestions
-            ? _buildLoadingState()
-            : _loadError != null
-                ? _buildErrorState()
-                : _buildTestUI(),
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          child: _loadingQuestions
+              ? _buildLoadingState()
+              : _loadError != null
+                  ? _buildErrorState()
+                  : _buildTestUI(),
+        ),
       ),
     );
   }
@@ -419,45 +423,91 @@ class _TestScreenState extends State<TestScreen>
           ],
         ),
       ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Animated loading indicator
-            SizedBox(
-              width: 64,
-              height: 64,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: const AlwaysStoppedAnimation(
-                    AppTheme.primaryBlue),
-                backgroundColor: isDark ? AppTheme.darkDivider : AppTheme.divider,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/home');
+                    }
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.dynamicCard(context),
+                      shape: BoxShape.circle,
+                      border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                      boxShadow: isDark ? null : AppTheme.cardShadow,
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppTheme.dynamicText(context),
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Cancel',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.dynamicSecondaryText(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Animated loading indicator
+                  SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: const AlwaysStoppedAnimation(
+                          AppTheme.primaryBlue),
+                      backgroundColor: isDark ? AppTheme.darkDivider : AppTheme.divider,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Preparing your test...',
+                    style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: textCol,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Generating ${widget.questionCount} questions\nfrom your document',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      color: secCol,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Loading stages text
+                  _buildLoadingStages(),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Preparing your test...',
-              style: GoogleFonts.dmSans(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: textCol,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Generating ${widget.questionCount} questions\nfrom your document',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.dmSans(
-                fontSize: 14,
-                color: secCol,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 40),
-            // Loading stages text
-            _buildLoadingStages(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -531,7 +581,13 @@ class _TestScreenState extends State<TestScreen>
           ),
           const SizedBox(height: 12),
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
+            },
             child: Text(
               'Go back',
               style: GoogleFonts.dmSans(
@@ -584,7 +640,7 @@ class _TestScreenState extends State<TestScreen>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
         children: [
-          // Close button
+          // Back / Exit button
           GestureDetector(
             onTap: () async {
               final confirm = await showDialog<bool>(
@@ -621,7 +677,13 @@ class _TestScreenState extends State<TestScreen>
                   ],
                 ),
               );
-              if (confirm == true && mounted) Navigator.pop(context);
+              if (confirm == true && mounted) {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacementNamed(context, '/home');
+                }
+              }
             },
             child: Container(
               width: 40,
@@ -632,7 +694,7 @@ class _TestScreenState extends State<TestScreen>
                 border: Border.all(color: AppTheme.dynamicDivider(context)),
                 boxShadow: AppTheme.isDark(context) ? [] : AppTheme.cardShadow,
               ),
-              child: Icon(Icons.close_rounded,
+              child: Icon(Icons.arrow_back_rounded,
                   color: AppTheme.dynamicText(context), size: 20),
             ),
           ),

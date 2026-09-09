@@ -9,6 +9,7 @@ import '../../widgets/app_page_route.dart';
 import '../session/mode_select.dart';
 import '../session/learn_screen.dart';
 import '../upload/upload_screen.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -98,11 +99,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBody: true,
-      resizeToAvoidBottomInset: false,
-      body: Stack(
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        extendBody: true,
+        resizeToAvoidBottomInset: false,
+        body: Stack(
         children: [
           SafeArea(
             bottom: false,
@@ -167,8 +170,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeader() {
     final isDark = AppTheme.isDark(context);

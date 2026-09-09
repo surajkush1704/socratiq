@@ -8,6 +8,7 @@ import '../../services/sync_service.dart';
 import '../../widgets/socratiq_avatar.dart';
 import 'avatar_picker_screen.dart';
 import '../../widgets/app_page_route.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -224,20 +225,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final photo = user?.photoURL;
     final currentDisplayName = user?.displayName ?? 'User';
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.dynamicText(context),
+    return SwipeBackWrapper(
+      fallbackRoute: '/profile',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_rounded,
+              color: AppTheme.dynamicText(context),
+            ),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/profile');
+              }
+            },
           ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'EDIT PROFILE',
+          title: Text(
+            'EDIT PROFILE',
           style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
             fontSize: 16,
@@ -555,6 +564,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 }

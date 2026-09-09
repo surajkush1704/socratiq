@@ -14,6 +14,7 @@ import '../../services/sync_service.dart';
 import '../../services/voice_service.dart';
 import '../../widgets/voice_orb_painter.dart';
 import '../../widgets/app_page_route.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 import '../permission/mic_permission_screen.dart';
 import '../session/result_screen.dart';
 
@@ -870,10 +871,19 @@ class _LearnScreenState extends State<LearnScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      resizeToAvoidBottomInset: true,
-      body: Stack(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _onBackPressed();
+        }
+      },
+      child: SwipeBackWrapper(
+        fallbackRoute: '/home',
+        child: Scaffold(
+          backgroundColor: const Color(0xFF0F172A),
+          resizeToAvoidBottomInset: true,
+          body: Stack(
         children: [
           // ── Background Aurora Gradient ──
           Positioned.fill(
@@ -950,8 +960,10 @@ class _LearnScreenState extends State<LearnScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   // ── TOP BAR ───────────────────────────────────────────────────────────────
 

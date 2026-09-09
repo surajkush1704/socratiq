@@ -1,25 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text('PRIVACY POLICY',
-            style: GoogleFonts.dmSans(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                letterSpacing: 1.2,
-                color: AppTheme.dynamicText(context))),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(color: AppTheme.dynamicText(context)),
-      ),
+    final textCol = AppTheme.dynamicText(context);
+
+    return SwipeBackWrapper(
+      fallbackRoute: '/app-settings',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: Text('PRIVACY POLICY',
+              style: GoogleFonts.dmSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  letterSpacing: 1.2,
+                  color: textCol)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: textCol),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/app-settings');
+              }
+            },
+          ),
+          iconTheme: IconThemeData(color: textCol),
+        ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -70,8 +85,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSection(String title, dynamic content) {
     return Padding(

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../widgets/app_page_route.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 import 'detail_explanation_screen.dart';
 import 'revise_summary_screen.dart';
 import 'learn_screen.dart';
@@ -17,15 +18,53 @@ class ModeSelectScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ContentModel? effectiveContent = content ??
         (ModalRoute.of(context)?.settings.arguments as ContentModel?);
+    final isDark = AppTheme.isDark(context);
 
     if (effectiveContent == null) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Center(
-            child: Text(
-              'No document selected',
-              style: GoogleFonts.dmSans(color: AppTheme.dynamicSecondaryText(context)),
+      return SwipeBackWrapper(
+        fallbackRoute: '/home',
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        Navigator.pushReplacementNamed(context, '/home');
+                      }
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.dynamicCard(context),
+                        shape: BoxShape.circle,
+                        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                        boxShadow: isDark ? null : AppTheme.cardShadow,
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppTheme.dynamicText(context),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        'No document selected',
+                        style: TextStyle(color: AppTheme.secondaryText),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -34,36 +73,43 @@ class ModeSelectScreen extends StatelessWidget {
 
     final testCount =
         effectiveContent.extractedText.length > 5000 ? 20 : 15;
-    final isDark = AppTheme.isDark(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Back button
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.dynamicCard(context),
-                    shape: BoxShape.circle,
-                    border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
-                    boxShadow: isDark ? null : AppTheme.cardShadow,
-                  ),
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: AppTheme.dynamicText(context),
-                    size: 20,
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Back button
+                GestureDetector(
+                  onTap: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/home');
+                    }
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.dynamicCard(context),
+                      shape: BoxShape.circle,
+                      border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+                      boxShadow: isDark ? null : AppTheme.cardShadow,
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppTheme.dynamicText(context),
+                      size: 20,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
               Text(
                 effectiveContent.documentName.replaceAll('.pdf', ''),
@@ -219,8 +265,9 @@ class ModeSelectScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildModeCard({
     required BuildContext context,

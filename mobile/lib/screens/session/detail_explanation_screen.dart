@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../services/api_service.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class DetailExplanationScreen extends StatefulWidget {
   final ContentModel? content;
@@ -209,17 +210,20 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
         (ModalRoute.of(context)?.settings.arguments as ContentModel?);
 
     if (effectiveContent == null) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopBar(context, 'Document'),
-              const Expanded(
-                child: Center(child: Text('No document selected')),
-              ),
-            ],
+      return SwipeBackWrapper(
+        fallbackRoute: '/home',
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(context, 'Document'),
+                const Expanded(
+                  child: Center(child: Text('No document selected')),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -228,25 +232,28 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
     final docTitle = effectiveContent.documentName.replaceAll('.pdf', '');
     final isDark = AppTheme.isDark(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context, docTitle),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState(context)
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                      child: _buildStructuredExplanation(
-                        _detailedExplanation ?? effectiveContent.summary,
-                        context,
-                        isDark,
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildTopBar(context, docTitle),
+              Expanded(
+                child: _isLoading
+                    ? _buildLoadingState(context)
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                        child: _buildStructuredExplanation(
+                          _detailedExplanation ?? effectiveContent.summary,
+                          context,
+                          isDark,
+                        ),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -355,7 +362,13 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
+            },
             child: Container(
               width: 40,
               height: 40,

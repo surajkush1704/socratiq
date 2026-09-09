@@ -11,6 +11,7 @@ import '../../widgets/app_page_route.dart';
 import '../account/edit_profile_screen.dart';
 import '../session/learn_screen.dart';
 import '../settings/settings_screen.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -152,11 +153,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final isDark = AppTheme.isDark(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBody: true,
-      resizeToAvoidBottomInset: false,
-      body: SizedBox.expand(
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        extendBody: true,
+        resizeToAvoidBottomInset: false,
+        body: SizedBox.expand(
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -276,7 +279,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-
           // GlassNav pinned at bottom
           Positioned(
             bottom: 0,
@@ -290,8 +292,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     ),
-  );
-}
+  ),
+);
+  }
 
   // ─── PROFILE CARD ─────────────────────────────────────────────────────────
 

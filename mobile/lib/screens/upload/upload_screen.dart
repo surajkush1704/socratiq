@@ -8,6 +8,7 @@ import '../../services/hive_service.dart';
 import '../../models/content_model.dart';
 import '../../widgets/topic_chip.dart';
 import '../../widgets/app_page_route.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 import '../session/mode_select.dart';
 
 enum _UploadState { idle, selected, processing, done, error }
@@ -140,34 +141,37 @@ class _UploadScreenState extends State<UploadScreen>
     final isDark = AppTheme.isDark(context);
     final bg = Theme.of(context).scaffoldBackgroundColor;
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF1E3A8A).withOpacity(isDark ? 0.25 : 0.08),
-              const Color(0xFF0891B2).withOpacity(isDark ? 0.15 : 0.05),
-              bg,
-              bg,
-            ],
-            stops: const [0.0, 0.25, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildBackButton(),
-                const SizedBox(height: 24),
-                _buildHeading(),
-                const SizedBox(height: 32),
-                _buildMainArea(),
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: bg,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF1E3A8A).withOpacity(isDark ? 0.25 : 0.08),
+                const Color(0xFF0891B2).withOpacity(isDark ? 0.15 : 0.05),
+                bg,
+                bg,
               ],
+              stops: const [0.0, 0.25, 0.5, 1.0],
+            ),
+          ),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildBackButton(),
+                  const SizedBox(height: 24),
+                  _buildHeading(),
+                  const SizedBox(height: 32),
+                  _buildMainArea(),
+                ],
+              ),
             ),
           ),
         ),
@@ -178,7 +182,13 @@ class _UploadScreenState extends State<UploadScreen>
   Widget _buildBackButton() {
     final isDark = AppTheme.isDark(context);
     return GestureDetector(
-      onTap: () => Navigator.pop(context),
+      onTap: () {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      },
       child: Container(
         width: 40,
         height: 40,

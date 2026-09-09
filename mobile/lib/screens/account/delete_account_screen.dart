@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class DeleteAccountScreen extends StatefulWidget {
   const DeleteAccountScreen({super.key});
@@ -43,23 +44,36 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   Widget build(BuildContext context) {
     final textCol = AppTheme.dynamicText(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: _step < 3 ? AppBar(
-        title: Text('DELETE ACCOUNT',
-            style: GoogleFonts.dmSans(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                letterSpacing: 1.2,
-                color: textCol)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(color: textCol),
-      ) : null,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: _buildStep(),
+    return SwipeBackWrapper(
+      fallbackRoute: '/app-settings',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: _step < 3 ? AppBar(
+          title: Text('DELETE ACCOUNT',
+              style: GoogleFonts.dmSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  letterSpacing: 1.2,
+                  color: textCol)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: textCol),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/app-settings');
+              }
+            },
+          ),
+          iconTheme: IconThemeData(color: textCol),
+        ) : null,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: _buildStep(),
+          ),
         ),
       ),
     );

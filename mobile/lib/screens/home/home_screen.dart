@@ -216,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          _buildIconButton(Icons.search_rounded, () => Navigator.pushReplacementNamed(context, '/library')),
+          _buildIconButton(Icons.search_rounded, () => Navigator.pushNamed(context, '/library')),
           const SizedBox(width: 8),
           _buildIconButton(Icons.notifications_none_rounded, () {}),
         ],
@@ -533,7 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 flex: 1,
                 child: GestureDetector(
-                  onTap: () => Navigator.pushReplacementNamed(context, '/library'),
+                  onTap: () => Navigator.pushNamed(context, '/library'),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -584,7 +584,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Library Card
           Expanded(
             child: GestureDetector(
-              onTap: () => Navigator.pushReplacementNamed(context, '/library'),
+              onTap: () => Navigator.pushNamed(context, '/library'),
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -663,7 +663,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Progress Card
           Expanded(
             child: GestureDetector(
-              onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+              onTap: () => Navigator.pushNamed(context, '/dashboard'),
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -719,7 +719,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () => Navigator.pushReplacementNamed(context, '/library'),
+                onTap: () => Navigator.pushNamed(context, '/library'),
                 child: Text(
                   'See all',
                   style: GoogleFonts.dmSans(

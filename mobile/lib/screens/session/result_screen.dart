@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../models/mcq_model.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class ResultScreen extends StatefulWidget {
   final ContentModel content;
@@ -85,37 +86,50 @@ class _ResultScreenState extends State<ResultScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFEEF2FF),
-              Color(0xFFE0E7FF),
-              Color(0xFFF8FAFF),
-            ],
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: AppTheme.isDark(context)
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.darkBackground,
+                      AppTheme.darkBackgroundAlt,
+                      const Color(0xFF1E1B4B).withOpacity(0.3),
+                    ],
+                  )
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFEEF2FF),
+                      Color(0xFFE0E7FF),
+                      Color(0xFFF8FAFF),
+                    ],
+                  ),
           ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnim,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-              child: Column(
-                children: [
-                  _buildTopBar(context),
-                  const SizedBox(height: 40),
-                  _buildScoreSection(),
-                  const SizedBox(height: 32),
-                  _buildBreakdownCard(),
-                  const SizedBox(height: 16),
-                  if (_getWeakTopics().isNotEmpty) _buildWeakTopicsCard(),
-                  const SizedBox(height: 32),
-                  _buildCTAButtons(context),
-                ],
+          child: SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                child: Column(
+                  children: [
+                    _buildTopBar(context),
+                    const SizedBox(height: 40),
+                    _buildScoreSection(),
+                    const SizedBox(height: 32),
+                    _buildBreakdownCard(),
+                    const SizedBox(height: 16),
+                    if (_getWeakTopics().isNotEmpty) _buildWeakTopicsCard(),
+                    const SizedBox(height: 32),
+                    _buildCTAButtons(context),
+                  ],
+                ),
               ),
             ),
           ),
@@ -125,6 +139,7 @@ class _ResultScreenState extends State<ResultScreen>
   }
 
   Widget _buildTopBar(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Row(
       children: [
         GestureDetector(
@@ -140,13 +155,14 @@ class _ResultScreenState extends State<ResultScreen>
             height: 38,
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.dynamicCard(context),
               shape: BoxShape.circle,
-              boxShadow: AppTheme.cardShadow,
+              border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+              boxShadow: isDark ? null : AppTheme.cardShadow,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.arrow_back_rounded,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
               size: 20,
             ),
           ),
@@ -156,7 +172,7 @@ class _ResultScreenState extends State<ResultScreen>
           style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
             fontSize: 22,
-            color: AppTheme.navyText,
+            color: AppTheme.dynamicText(context),
             letterSpacing: -0.3,
           ),
         ),

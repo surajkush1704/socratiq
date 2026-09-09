@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/socratiq_avatar.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class AvatarPickerScreen extends StatefulWidget {
   /// The currently active avatarId (0 = none).
@@ -80,18 +81,26 @@ class _AvatarPickerScreenState extends State<AvatarPickerScreen> {
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded,
-              color: AppTheme.dynamicText(context)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'CHOOSE AVATAR',
+    return SwipeBackWrapper(
+      fallbackRoute: '/edit-profile',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded,
+                color: AppTheme.dynamicText(context)),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/edit-profile');
+              }
+            },
+          ),
+          title: Text(
+            'CHOOSE AVATAR',
           style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
             fontSize: 16,
@@ -236,8 +245,9 @@ class _AvatarPickerScreenState extends State<AvatarPickerScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ── AVATAR GRID CELL ──────────────────────────────────────────────────────────

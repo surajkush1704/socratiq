@@ -12,6 +12,7 @@ import '../legal/privacy_policy_screen.dart';
 import '../legal/terms_screen.dart';
 import '../legal/about_screen.dart';
 import '../account/delete_account_screen.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -186,11 +187,13 @@ class _SettingsScreenState extends State<SettingsScreen>
     final docCount = Hive.box('content_box').length;
     final isDark = AppTheme.isDark(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBody: true,
-      resizeToAvoidBottomInset: false,
-      body: Stack(
+    return SwipeBackWrapper(
+      fallbackRoute: '/profile',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        extendBody: true,
+        resizeToAvoidBottomInset: false,
+        body: Stack(
         children: [
           SafeArea(
             bottom: false,
@@ -476,8 +479,9 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ── BUILD HELPERS ─────────────────────────────────────────────────────────
 

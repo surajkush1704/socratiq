@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../services/api_service.dart';
+import '../../widgets/swipe_back_wrapper.dart';
 
 class TopicSummaryItem {
   final String topicName;
@@ -200,17 +201,20 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
         (ModalRoute.of(context)?.settings.arguments as ContentModel?);
 
     if (effectiveContent == null) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopBar(context, 'Document'),
-              const Expanded(
-                child: Center(child: Text('No document selected')),
-              ),
-            ],
+      return SwipeBackWrapper(
+        fallbackRoute: '/home',
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(context, 'Document'),
+                const Expanded(
+                  child: Center(child: Text('No document selected')),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -219,25 +223,28 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
     final docTitle = effectiveContent.documentName.replaceAll('.pdf', '');
     final isDark = AppTheme.isDark(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context, docTitle),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState(context)
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                      itemCount: _topicSummaries.length,
-                      itemBuilder: (context, index) {
-                        final item = _topicSummaries[index];
-                        return _buildTopicSummaryCard(item, index + 1, isDark);
-                      },
-                    ),
-            ),
-          ],
+    return SwipeBackWrapper(
+      fallbackRoute: '/home',
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildTopBar(context, docTitle),
+              Expanded(
+                child: _isLoading
+                    ? _buildLoadingState(context)
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                        itemCount: _topicSummaries.length,
+                        itemBuilder: (context, index) {
+                          final item = _topicSummaries[index];
+                          return _buildTopicSummaryCard(item, index + 1, isDark);
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -390,7 +397,13 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
+            },
             child: Container(
               width: 40,
               height: 40,

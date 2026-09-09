@@ -18,6 +18,7 @@ import 'screens/session/learn_screen.dart';
 import 'screens/session/detail_explanation_screen.dart';
 import 'screens/session/revise_summary_screen.dart';
 import 'services/theme_service.dart';
+import 'widgets/app_page_route.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -37,27 +38,38 @@ class SocratiqApp extends StatelessWidget {
           themeMode: currentMode,
           debugShowCheckedModeBanner: false,
           home: const SplashScreen(),
-          routes: {
-            '/login':          (_) => const LoginScreen(),
-            '/home':           (_) => const HomeScreen(),
-            '/library':        (_) => const LibraryScreen(),
-            '/upload':         (_) => const UploadScreen(),
-            '/dashboard':      (_) => const DashboardScreen(),
-            '/profile':        (_) => const ProfileScreen(),
-            '/settings':       (_) => const ProfileScreen(),
-            '/app-settings':   (_) => const SettingsScreen(),
-            '/voice-agent':    (_) => const LearnScreen(mode: 'learn'),
-            '/learn-detail':   (_) => const DetailExplanationScreen(),
-            '/revise-summary': (_) => const ReviseSummaryScreen(),
-            '/privacy-policy': (_) => const PrivacyPolicyScreen(),
-            '/terms':          (_) => const TermsScreen(),
-            '/about':          (_) => const AboutScreen(),
-            '/delete-account': (_) => const DeleteAccountScreen(),
-            '/edit-profile':  (_) => const EditProfileScreen(),
-            '/avatar-picker': (_) => const AvatarPickerScreen(),
+          onGenerateRoute: (settings) {
+            final WidgetBuilder? builder = _routes[settings.name];
+            if (builder != null) {
+              return AppPageRoute(
+                builder: builder,
+                settings: settings,
+              );
+            }
+            return null;
           },
         );
       },
     );
   }
+
+  static final Map<String, WidgetBuilder> _routes = {
+    '/login':          (_) => const LoginScreen(),
+    '/home':           (_) => const HomeScreen(),
+    '/library':        (_) => const LibraryScreen(),
+    '/upload':         (_) => const UploadScreen(),
+    '/dashboard':      (_) => const DashboardScreen(),
+    '/profile':        (_) => const ProfileScreen(),
+    '/settings':       (_) => const ProfileScreen(),
+    '/app-settings':   (_) => const SettingsScreen(),
+    '/voice-agent':    (_) => const LearnScreen(mode: 'learn'),
+    '/learn-detail':   (_) => const DetailExplanationScreen(),
+    '/revise-summary': (_) => const ReviseSummaryScreen(),
+    '/privacy-policy': (_) => const PrivacyPolicyScreen(),
+    '/terms':          (_) => const TermsScreen(),
+    '/about':          (_) => const AboutScreen(),
+    '/delete-account': (_) => const DeleteAccountScreen(),
+    '/edit-profile':  (_) => const EditProfileScreen(),
+    '/avatar-picker': (_) => const AvatarPickerScreen(),
+  };
 }
