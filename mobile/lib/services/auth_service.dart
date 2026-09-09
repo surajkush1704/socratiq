@@ -21,10 +21,24 @@ class AuthService {
 
   static Future<UserCredential?> signInWithGoogle() async {
     try {
+      // Clear previous cached session in case of prior aborted state
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (googleUser == null) return null; // User cancelled
+
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
+
+      if (googleAuth.idToken == null && googleAuth.accessToken == null) {
+        throw Exception(
+          'Google authentication returned no tokens. '
+          'Please ensure SHA-1 fingerprint is registered in Firebase Console.',
+        );
+      }
+
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -59,7 +73,7 @@ class AuthService {
       rethrow;
     } catch (e) {
       print('[AUTH ERROR]: $e');
-      return null;
+      rethrow;
     }
   }
 

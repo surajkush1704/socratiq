@@ -79,11 +79,30 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errStr = e.toString().toLowerCase();
         if (e is AuthRateLimitException) {
           _startRateLimitCountdown(e.retryAfterSeconds);
           _showError(e.message);
+        } else if (errStr.contains('10') ||
+            errStr.contains('developer_error') ||
+            errStr.contains('sha-1')) {
+          _showError('Google Sign-In configuration error: SHA-1 fingerprint needs to be added in Firebase Console.');
+        } else if (errStr.contains('12500')) {
+          _showError('Google Play Services error (12500). Please check your Google account settings.');
+        } else if (errStr.contains('network') || errStr.contains('7')) {
+          _showError('Network error connecting to Google. Please check your internet connection.');
+        } else if (errStr.contains('sign_in_canceled') ||
+            errStr.contains('sign_in_cancelled') ||
+            errStr.contains('12501')) {
+          // User deliberately cancelled the popup, do not show error
         } else {
-          _showError('Google sign in failed. Please try again.');
+          final cleanMsg = e
+              .toString()
+              .replaceAll('Exception: ', '')
+              .replaceAll('PlatformException(', '')
+              .split(',')
+              .first;
+          _showError('Google sign in failed: $cleanMsg');
         }
       }
     } finally {
