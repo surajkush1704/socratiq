@@ -7,11 +7,12 @@ class ApiService {
   // Defaults to 192.168.1.8:8000 for Wi-Fi LAN / physical Android devices
   static String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.1.7:8000',
+    defaultValue: 'https://socratiq-kappa.vercel.app',
   );
 
-  // Candidate local backend addresses in priority order
+  // Candidate backend addresses in priority order
   static const List<String> candidateUrls = [
+    'https://socratiq-kappa.vercel.app',
     'http://192.168.1.7:8000',
     'http://192.168.1.8:8000',
     'http://10.0.2.2:8000',
