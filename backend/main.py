@@ -1,10 +1,16 @@
-import logging
 import os
+import sys
+
+# Ensure current directory is on sys.path for serverless environments (e.g. Vercel)
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+
+import logging
+import traceback
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from middleware.rate_limit import RateLimitMiddleware
-from routers import auth, content, interaction, session, sync, voice
 
 load_dotenv()
 
@@ -23,7 +29,11 @@ app = FastAPI(
 )
 
 # Custom Rate Limit Middleware (X-RateLimit headers and login throttling)
-app.add_middleware(RateLimitMiddleware)
+try:
+    from middleware.rate_limit import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware)
+except Exception as e:
+    print(f'[MAIN] RateLimitMiddleware warning: {e}')
 
 # Restrict CORS in production if ALLOWED_ORIGINS is configured
 allowed_origins = ['*']
@@ -39,18 +49,25 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-app.include_router(auth.router, prefix='/auth', tags=['auth'])
-app.include_router(content.router, prefix='/content', tags=['content'])
-app.include_router(session.router, prefix='/session', tags=['session'])
-app.include_router(interaction.router, prefix='/interaction', tags=['interaction'])
-app.include_router(sync.router, prefix='/sync', tags=['sync'])
-app.include_router(voice.router, prefix='/voice', tags=['voice'])
+startup_errors = []
+
+for router_name in ['auth', 'content', 'interaction', 'session', 'sync', 'voice']:
+    try:
+        mod = __import__(f'routers.{router_name}', fromlist=['router'])
+        app.include_router(mod.router, prefix=f'/{router_name}', tags=[router_name])
+    except Exception as e:
+        err_msg = f'Failed to load router {router_name}: {e}\n{traceback.format_exc()}'
+        print(f'[MAIN] Error loading router {router_name}: {err_msg}')
+        startup_errors.append(err_msg)
 
 
 @app.get('/')
 def root():
-    return {
+    response = {
         'status': 'Socratiq backend running',
         'version': '4.0.0',
         'voice': 'enabled',
     }
+    if startup_errors:
+        response['startup_errors'] = startup_errors
+    return response
