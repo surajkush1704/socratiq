@@ -5,6 +5,7 @@ import '../../models/content_model.dart';
 import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/glass_nav.dart';
+import '../../widgets/app_page_route.dart';
 import '../session/mode_select.dart';
 import '../session/learn_screen.dart';
 import '../upload/upload_screen.dart';
@@ -88,7 +89,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (index == 2) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+        AppPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
       );
     }
     if (index == 3) Navigator.pushReplacementNamed(context, '/dashboard');
@@ -99,10 +100,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
+      extendBody: true,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
@@ -111,55 +115,57 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 Expanded(child: _buildDocList()),
               ],
             ),
-            // Floating upload pill — above GlassNav
-            Positioned(
-              bottom: 88,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const UploadScreen()),
-                  ).then((_) => _load()),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                      boxShadow: AppTheme.buttonShadow,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add_rounded,
-                            color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Upload PDF',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+          ),
+          // Floating upload pill — above GlassNav
+          Positioned(
+            bottom: 88,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  AppPageRoute(builder: (_) => const UploadScreen()),
+                ).then((_) => _load()),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                    boxShadow: AppTheme.buttonShadow,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_rounded,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Upload PDF',
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            // GlassNav
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: GlassNav(
-                currentIndex: 1,
-                onTap: _onNavTap,
-              ),
+          ),
+          // GlassNav
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: GlassNav(
+              currentIndex: 1,
+              onTap: _onNavTap,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -199,18 +205,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           Expanded(
             child: Text(
-              'My Library',
-              style: GoogleFonts.poppins(
+              'LIBRARY',
+              style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
                 fontSize: 26,
                 color: AppTheme.dynamicText(context),
-                letterSpacing: -0.5,
+                letterSpacing: 1.2,
               ),
             ),
           ),
           Text(
             '${_allDocs.length} PDFs',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               color: AppTheme.dynamicSecondaryText(context),
             ),
@@ -239,13 +245,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Expanded(
             child: TextField(
               controller: _search,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 color: AppTheme.dynamicText(context),
               ),
               decoration: InputDecoration(
                 hintText: 'Search documents...',
-                hintStyle: GoogleFonts.poppins(
+                hintStyle: GoogleFonts.dmSans(
                   fontSize: 14,
                   color: AppTheme.dynamicSecondaryText(context),
                 ),
@@ -307,7 +313,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               child: Text(
                 filters[i],
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                   color: active
@@ -324,41 +330,51 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildDocList() {
     if (_filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.library_books_rounded,
-                size: 56, color: AppTheme.dynamicDivider(context)),
-            const SizedBox(height: 16),
-            Text(
-              _search.text.isEmpty
-                  ? 'No documents yet'
-                  : 'No results found',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-                color: AppTheme.dynamicText(context),
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.library_books_rounded,
+                      size: 56, color: AppTheme.dynamicDivider(context)),
+                  const SizedBox(height: 16),
+                  Text(
+                    _search.text.isEmpty
+                        ? 'No documents yet'
+                        : 'No results found',
+                    style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: AppTheme.dynamicText(context),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _search.text.isEmpty
+                        ? 'Upload your first PDF to get started'
+                        : 'Try a different search term',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      color: AppTheme.dynamicSecondaryText(context),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              _search.text.isEmpty
-                  ? 'Upload your first PDF to get started'
-                  : 'Try a different search term',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppTheme.dynamicSecondaryText(context),
-              ),
-            ),
-          ],
+          ),
         ),
       );
     }
 
     final isDark = AppTheme.isDark(context);
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 160),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       itemCount: _filtered.length,
       itemBuilder: (context, index) {
         final doc = _filtered[index];
@@ -366,7 +382,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         return GestureDetector(
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(
+            AppPageRoute(
               builder: (_) => ModeSelectScreen(content: doc),
             ),
           ),
@@ -403,7 +419,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     children: [
                       Text(
                         doc.documentName.replaceAll('.pdf', ''),
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                           color: AppTheme.dynamicText(context),
@@ -418,7 +434,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             : doc.topics.isNotEmpty
                                 ? doc.topics.take(2).join(' · ')
                                 : 'No topics extracted',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                           fontSize: 12,
                           color: AppTheme.dynamicSecondaryText(context),
                         ),
@@ -440,9 +456,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               ),
                               child: Text(
                                 t,
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w400,
                                   color: color,
                                 ),
                               ),

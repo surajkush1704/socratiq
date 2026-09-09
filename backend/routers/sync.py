@@ -25,6 +25,8 @@ class UserProfileRequest(BaseModel):
     name: str = ''
     email: str = ''
     device_id: str = ''
+    username: Optional[str] = None
+    avatar_id: Optional[int] = None
 
 
 class SyncSessionRequest(BaseModel):
@@ -52,8 +54,8 @@ class SyncSessionResponse(BaseModel):
 @router.post('/profile')
 async def sync_profile(request: UserProfileRequest):
     """
-    Called on app launch after Firebase Auth.
-    Creates user profile if first time, updates lastActive otherwise.
+    Called on app launch after Firebase Auth or when user updates profile.
+    Creates user profile if first time, updates lastActive and profile fields otherwise.
     """
     try:
         print(f'[SYNC] Profile sync for uid: {request.uid[:8]}...')
@@ -62,6 +64,8 @@ async def sync_profile(request: UserProfileRequest):
             name=request.name,
             email=request.email,
             device_id=request.device_id,
+            username=request.username,
+            avatar_id=request.avatar_id,
         )
         return {'success': True, 'profile': profile}
     except Exception as e:

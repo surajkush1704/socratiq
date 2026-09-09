@@ -30,6 +30,17 @@ RULES:
 - Do NOT output markdown. Pure JSON only."""
 
 
+def _get_eval_language_rule(response_language: str) -> str:
+    if response_language == 'hi':
+        return """
+LANGUAGE RULE (MANDATORY):
+- Provide feedback and correction in Hindi (हिंदी).
+- The JSON values for feedback and correction must be in Hindi.
+- score is always a number — that stays the same.
+"""
+    return ""
+
+
 async def evaluate_answer(
     question: str,
     correct_answer: str,
@@ -37,19 +48,28 @@ async def evaluate_answer(
     context_summary: str,
     is_mcq: bool = False,
     selected_option: Optional[str] = None,
+    response_language: str = 'en',
 ) -> dict:
     if is_mcq:
         # MCQ evaluation is deterministic — no LLM needed
         is_correct = user_answer.strip().lower() == correct_answer.strip().lower()
         score = 10.0 if is_correct else 0.0
-        feedback = (
-            'Correct! Well done.' if is_correct
-            else f'Not quite. The correct answer is: {correct_answer}'
-        )
+        if response_language == 'hi':
+            feedback = (
+                'सही उत्तर! बहुत बढ़िया।' if is_correct
+                else f'यह सही नहीं है। सही उत्तर है: {correct_answer}'
+            )
+            correction = '' if is_correct else f'सही उत्तर था: {correct_answer}'
+        else:
+            feedback = (
+                'Correct! Well done.' if is_correct
+                else f'Not quite. The correct answer is: {correct_answer}'
+            )
+            correction = '' if is_correct else f'The correct answer was: {correct_answer}'
         return {
             'score': score,
             'feedback': feedback,
-            'correction': '' if is_correct else f'The correct answer was: {correct_answer}',
+            'correction': correction,
             'trigger_reasoning': not is_correct
         }
 
@@ -67,11 +87,14 @@ STUDENT'S ANSWER:
 
 Evaluate the student's answer and return JSON:"""
 
+    lang_rule = _get_eval_language_rule(response_language)
+    full_system = (lang_rule + '\n\n' + EVAL_SYSTEM_PROMPT).strip()
+
     try:
         result = await call_with_fallback(
             agent_type='evaluation',
             prompt=prompt,
-            system_prompt=EVAL_SYSTEM_PROMPT
+            system_prompt=full_system
         )
 
         print(f'[EVAL AGENT] Raw: {result[:50]}...')
@@ -117,6 +140,7 @@ async def get_reasoning_followup(
     user_wrong_answer: str,
     correct_answer: str,
     context_summary: str,
+    response_language: str = 'en',
 ) -> str:
     REASONING_SYSTEM = """You are a Socratic tutor.
 The student answered a question incorrectly.
@@ -124,6 +148,13 @@ Ask ONE short follow-up question that guides them to discover
 the correct answer themselves — do not give the answer.
 Keep it to one sentence. Be warm and encouraging.
 Output plain text only — no JSON, no markdown."""
+
+    if response_language == 'hi':
+        REASONING_SYSTEM = (
+            """LANGUAGE RULE: Ask your guiding question in Hindi.
+If referencing Sanskrit text, quote it in Sanskrit then
+continue the question in Hindi.\n\n""" + REASONING_SYSTEM
+        )
 
     prompt = f"""Original question: {question}
 Student's wrong answer: {user_wrong_answer}
@@ -140,4 +171,6 @@ Ask a guiding follow-up question:"""
         )
     except Exception as e:
         print(f'[REASONING] Error: {e}')
+        if response_language == 'hi':
+            return 'आइए इसे अलग तरीके से सोचें — इस विषय के बारे में आपको क्या याद है?'
         return 'Let\'s think about this differently — what do you remember about this concept?'

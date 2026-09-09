@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
+import '../../widgets/app_page_route.dart';
 import 'detail_explanation_screen.dart';
 import 'revise_summary_screen.dart';
 import 'learn_screen.dart';
@@ -24,7 +25,7 @@ class ModeSelectScreen extends StatelessWidget {
           child: Center(
             child: Text(
               'No document selected',
-              style: GoogleFonts.poppins(color: AppTheme.dynamicSecondaryText(context)),
+              style: GoogleFonts.dmSans(color: AppTheme.dynamicSecondaryText(context)),
             ),
           ),
         ),
@@ -64,22 +65,48 @@ class ModeSelectScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Document Title & Subtitle
               Text(
                 effectiveContent.documentName.replaceAll('.pdf', ''),
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w700,
-                  fontSize: 22,
+                  fontSize: 20,
                   color: AppTheme.dynamicText(context),
-                  letterSpacing: -0.5,
+                  letterSpacing: -0.3,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (effectiveContent.documentLanguage != 'en')
+                Container(
+                  margin: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.language_rounded,
+                          color: AppTheme.primaryBlue, size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        effectiveContent.documentLanguage == 'sa'
+                            ? '${effectiveContent.languageDisplayName} • Tutor speaks Hindi'
+                            : effectiveContent.languageDisplayName,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 4),
               Text(
                 'Select study format for this chapter',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 14,
                   color: AppTheme.dynamicSecondaryText(context),
                 ),
@@ -93,15 +120,15 @@ class ModeSelectScreen extends StatelessWidget {
                 iconColor: AppTheme.primaryBlue,
                 icon: Icons.auto_stories_rounded,
                 title: 'Learn',
-                badgeText: 'Step-by-Step Breakdown',
+                badgeText: 'Step-by-step breakdown',
                 description:
                     'Read an in-depth, structured explanation of all key concepts, theorems, and real-world examples.',
-                buttonLabel: 'Read Detailed Explanation',
+                buttonLabel: 'Read detailed explanation',
                 buttonGradient: AppTheme.primaryGradient,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    AppPageRoute(
                       builder: (_) => DetailExplanationScreen(
                         content: effectiveContent,
                       ),
@@ -118,15 +145,15 @@ class ModeSelectScreen extends StatelessWidget {
                 iconColor: AppTheme.cyanAccent,
                 icon: Icons.bolt_rounded,
                 title: 'Revise',
-                badgeText: 'Simple High-Yield Summary',
+                badgeText: 'Simple high-yield summary',
                 description:
                     'Quick revision notes, simplified core takeaways, and flash-summary cards for rapid retention.',
-                buttonLabel: 'Open Quick Summary',
+                buttonLabel: 'Open quick summary',
                 buttonGradient: AppTheme.cyanGradient,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    AppPageRoute(
                       builder: (_) => ReviseSummaryScreen(
                         content: effectiveContent,
                       ),
@@ -142,16 +169,16 @@ class ModeSelectScreen extends StatelessWidget {
                 bgColor: const Color(0xFFFAF5FF),
                 iconColor: AppTheme.lavenderAccent,
                 icon: Icons.record_voice_over_rounded,
-                title: 'Talk to Tutor',
-                badgeText: 'Interactive AI Voice',
+                title: 'Talk to tutor',
+                badgeText: 'Interactive AI voice',
                 description:
                     'Live conversational audio session. Discuss doubts, practice answering questions, and receive verbal feedback.',
-                buttonLabel: 'Start Voice Session',
+                buttonLabel: 'Start voice session',
                 buttonGradient: AppTheme.lavenderGradient,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    AppPageRoute(
                       builder: (_) => LearnScreen(
                         content: effectiveContent,
                         mode: 'learn',
@@ -168,18 +195,18 @@ class ModeSelectScreen extends StatelessWidget {
                 bgColor: const Color(0xFFFFFBEB),
                 iconColor: const Color(0xFFD97706),
                 icon: Icons.assignment_turned_in_rounded,
-                title: 'Test Yourself',
-                badgeText: '$testCount Questions · 5E / 5M / 5H',
+                title: 'Test yourself',
+                badgeText: '$testCount questions · 5E / 5M / 5H',
                 description:
                     'Adaptive scored test with balanced difficulty tiers (Easy, Medium, Hard). Complete test analysis at the end.',
-                buttonLabel: 'Start $testCount-Question Test',
+                buttonLabel: 'Start $testCount-question test',
                 buttonGradient: const LinearGradient(
                   colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
                 ),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    AppPageRoute(
                       builder: (_) => TestScreen(
                         content: effectiveContent,
                         questionCount: testCount,
@@ -240,15 +267,15 @@ class ModeSelectScreen extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w700,
-                        fontSize: 18,
+                        fontSize: 16,
                         color: AppTheme.dynamicText(context),
                       ),
                     ),
                     Text(
                       badgeText,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w600,
                         fontSize: 11,
                         color: iconColor,
@@ -262,7 +289,7 @@ class ModeSelectScreen extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             description,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               color: AppTheme.dynamicSecondaryText(context),
               height: 1.5,
@@ -286,7 +313,7 @@ class ModeSelectScreen extends StatelessWidget {
               ),
               child: Text(
                 buttonLabel,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                   color: Colors.white,

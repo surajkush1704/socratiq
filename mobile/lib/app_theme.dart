@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
@@ -249,9 +250,9 @@ class AppTheme {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w600,
-            fontSize: 15,
+            fontSize: 14,
             color: Colors.white,
           ),
         ),
@@ -281,7 +282,7 @@ class AppTheme {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w600,
             fontSize: 14,
             color: textColor ?? AppTheme.primaryBlue,
@@ -294,8 +295,9 @@ class AppTheme {
   // ── THEME DATA ────────────────────────────────────────────────────────────
   static ThemeData get theme => ThemeData(
     useMaterial3: true,
+    platform: TargetPlatform.iOS,
     scaffoldBackgroundColor: background,
-    textTheme: GoogleFonts.poppinsTextTheme().apply(
+    textTheme: GoogleFonts.dmSansTextTheme().apply(
       bodyColor: navyText,
       displayColor: navyText,
     ),
@@ -326,11 +328,12 @@ class AppTheme {
 
   static ThemeData get darkTheme => ThemeData(
     useMaterial3: true,
+    platform: TargetPlatform.iOS,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: darkBackground,
     cardColor: darkCard,
     dividerColor: darkDivider,
-    textTheme: GoogleFonts.poppinsTextTheme().apply(
+    textTheme: GoogleFonts.dmSansTextTheme().apply(
       bodyColor: darkNavyText,
       displayColor: darkNavyText,
     ),

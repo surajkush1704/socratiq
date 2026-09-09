@@ -20,9 +20,9 @@ class TopicChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.dmSans(
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: c,
         ),
       ),

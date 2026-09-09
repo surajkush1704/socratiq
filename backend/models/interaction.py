@@ -25,3 +25,6 @@ class SessionState(BaseModel):
     awaiting_answer: bool = False
     score_sum: float = 0.0
     created_at: str = ''
+    document_language: str = 'en'
+    response_language: str = 'en'
+    language_display_name: str = 'English'

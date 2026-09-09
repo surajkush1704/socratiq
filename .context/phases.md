@@ -101,6 +101,55 @@
 - DashboardScreen: fully rewritten with animated streak hero, Bento cards, 7-day weekly activity bar chart, performance ring, topic mastery, and live session history feed.
 - LibraryScreen: fetches and displays last studied date per document from Firestore.
 
+## Pre-Phase 7 Multilingual — ✅ DONE
+
+### Language Detection
+- utils/language_detector.py: Unicode character range detection
+- Devanagari: distinguishes Sanskrit from Hindi using visarga
+  density, avagraha, vocabulary pattern matching
+- Supports: English, Sanskrit, Hindi, Tamil, Telugu, Kannada,
+  Bengali, Gujarati, Malayalam
+- Returns: document_language, response_language, language_display_name
+
+### Sanskrit Bridge Language Logic
+- Sanskrit documents → tutor responds in Hindi (bridge language)
+- MCQs stay in Sanskrit script (authentic assessment)
+- MCQ explanations in Hindi (student understands feedback)
+- Voice output in Hindi (Google Cloud TTS hi-IN WaveNet)
+- Voice input accepts Hindi or Sanskrit (Whisper lang='hi')
+
+### Agent Updates
+- All 5 agents accept document_language + response_language params
+- Language instruction prepended to every system prompt dynamically
+- Tutor: explains in response_language, quotes document_language
+- MCQ: generates questions in document_language, explanation
+  in response_language
+- Evaluation: feedback in response_language
+- Reasoning: Socratic questions in response_language
+
+### TTS Routing by Language
+- English → Deepgram Aura (best quality)
+- Hindi → Google Cloud TTS hi-IN WaveNet (natural Hindi)
+- Sanskrit → Google Cloud TTS hi-IN (reads Devanagari correctly)
+- Other Indian languages → gTTS with lang code
+- All fail → gTTS English fallback
+
+### STT Language Support
+- Groq Whisper now receives language parameter
+- Sanskrit sessions pass language='hi' to Whisper
+- Whisper multilingual handles Hindi/Sanskrit under 'hi' code
+
+### ContentModel Updates
+- Added: documentLanguage, responseLanguage, languageDisplayName
+- Stored in Hive with the document
+- Passed through to session start, TTS, STT calls
+
+### UI Changes
+- Upload screen shows detected language chip after processing
+- Sanskrit docs show "Tutor speaks Hindi" note
+- Mode Select shows language badge for non-English docs
+- LearnScreen top bar shows response language indicator
+
 ## Phase 7 — Polish and Ship
 - All animations refined
 - Fallback handling for every API with user-visible error messages

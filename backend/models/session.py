@@ -14,6 +14,9 @@ class SessionStartRequest(BaseModel):
     key_points: List[str]
     topics: List[str]
     mode: str  # 'learn' | 'revise' | 'test'
+    document_language: str = 'en'   # language of the PDF content
+    response_language: str = 'en'   # language tutor should respond in
+    language_display_name: str = 'English'
 
 
 class SessionStartResponse(BaseModel):

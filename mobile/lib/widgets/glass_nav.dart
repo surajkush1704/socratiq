@@ -18,7 +18,7 @@ class GlassNav extends StatelessWidget {
     {'icon': Icons.menu_book_rounded, 'label': 'Library'},
     {'icon': Icons.auto_awesome_rounded, 'label': 'Ask AI'},
     {'icon': Icons.bar_chart_rounded, 'label': 'Progress'},
-    {'icon': Icons.person_rounded, 'label': 'Settings'},
+    {'icon': Icons.person_rounded, 'label': 'Profile'},
   ];
 
   @override

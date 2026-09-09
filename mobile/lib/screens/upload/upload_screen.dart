@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../services/hive_service.dart';
 import '../../models/content_model.dart';
 import '../../widgets/topic_chip.dart';
+import '../../widgets/app_page_route.dart';
 import '../session/mode_select.dart';
 
 enum _UploadState { idle, selected, processing, done, error }
@@ -103,6 +104,9 @@ class _UploadScreenState extends State<UploadScreen>
         keyPoints: List<String>.from(processResult['key_points'] ?? []),
         topics: List<String>.from(processResult['topics'] ?? []),
         uploadedAt: DateTime.now(),
+        documentLanguage: processResult['document_language'] ?? 'en',
+        responseLanguage: processResult['response_language'] ?? 'en',
+        languageDisplayName: processResult['language_display_name'] ?? 'English',
       );
       await HiveService.saveContent(content);
 
@@ -196,26 +200,26 @@ class _UploadScreenState extends State<UploadScreen>
       children: [
         Text(
           'Give SocratiQ',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
-            fontSize: 28,
+            fontSize: 26,
             color: AppTheme.dynamicText(context),
-            letterSpacing: -0.5,
+            letterSpacing: -0.3,
           ),
         ),
         Text(
           'something to teach.',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
-            fontSize: 28,
+            fontSize: 26,
             color: AppTheme.primaryBlue,
-            letterSpacing: -0.5,
+            letterSpacing: -0.3,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Upload any PDF — textbook, notes, or chapter.',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontSize: 14,
             color: AppTheme.dynamicSecondaryText(context),
             height: 1.5,
@@ -235,7 +239,7 @@ class _UploadScreenState extends State<UploadScreen>
             _buildUploadZone(true),
             const SizedBox(height: 20),
             AppTheme.gradientButton(
-              label: 'Process Document',
+              label: 'Process document',
               width: double.infinity,
               onTap: _processDocument,
             ),
@@ -266,7 +270,7 @@ class _UploadScreenState extends State<UploadScreen>
                   Expanded(
                     child: Text(
                       _errorMessage,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontSize: 13,
                         color: AppTheme.error,
                       ),
@@ -277,7 +281,7 @@ class _UploadScreenState extends State<UploadScreen>
             ),
             const SizedBox(height: 16),
             AppTheme.gradientButton(
-              label: 'Try Again',
+              label: 'Try again',
               width: double.infinity,
               onTap: () => setState(() => _state = _UploadState.idle),
             ),
@@ -333,16 +337,16 @@ class _UploadScreenState extends State<UploadScreen>
               const SizedBox(height: 16),
               Text(
                 'Choose PDF',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                  fontSize: 15,
                   color: textCol,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Tap to browse from your device',
-                style: GoogleFonts.poppins(
+                'Tap to browse a PDF',
+                style: GoogleFonts.dmSans(
                   fontSize: 13,
                   color: secCol,
                 ),
@@ -354,16 +358,16 @@ class _UploadScreenState extends State<UploadScreen>
               Text(
                 _fileName,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontSize: 14,
                   color: textCol,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 _fileSize,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 13,
                   color: secCol,
                 ),
@@ -373,7 +377,7 @@ class _UploadScreenState extends State<UploadScreen>
                 onTap: _pickFile,
                 child: Text(
                   'Change file',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primaryBlue,
@@ -452,7 +456,7 @@ class _UploadScreenState extends State<UploadScreen>
                   const SizedBox(width: 12),
                   Text(
                     e.value,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontSize: 14,
                       fontWeight: active
                           ? FontWeight.w600
@@ -510,7 +514,7 @@ class _UploadScreenState extends State<UploadScreen>
                   children: [
                     Text(
                       'Your tutor is ready!',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                         color: textCol,
@@ -518,11 +522,47 @@ class _UploadScreenState extends State<UploadScreen>
                     ),
                     Text(
                       _fileName.replaceAll('.pdf', ''),
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontSize: 13,
                         color: secCol,
                       ),
                     ),
+                    if (_result != null && _result!.documentLanguage != 'en') ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.language_rounded, color: AppTheme.primaryBlue, size: 13),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Detected: ${_result!.languageDisplayName}',
+                              style: GoogleFonts.dmSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                            if (_result!.documentLanguage == 'sa') ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '• Tutor will explain in Hindi 🇮🇳',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -545,7 +585,7 @@ class _UploadScreenState extends State<UploadScreen>
             children: [
               Text(
                 'Summary',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                   color: textCol,
@@ -554,7 +594,7 @@ class _UploadScreenState extends State<UploadScreen>
               const SizedBox(height: 8),
               Text(
                 _result!.summary,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 14,
                   color: secCol,
                   height: 1.6,
@@ -566,8 +606,8 @@ class _UploadScreenState extends State<UploadScreen>
         const SizedBox(height: 16),
         // Topics
         Text(
-          'Detected Topics',
-          style: GoogleFonts.poppins(
+          'Detected topics',
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w600,
             fontSize: 14,
             color: textCol,
@@ -583,8 +623,8 @@ class _UploadScreenState extends State<UploadScreen>
         // Key points
         if (_result!.keyPoints.isNotEmpty) ...[
           Text(
-            'Key Concepts',
-            style: GoogleFonts.poppins(
+            'Key concepts',
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w600,
               fontSize: 14,
               color: textCol,
@@ -619,7 +659,7 @@ class _UploadScreenState extends State<UploadScreen>
                       Expanded(
                         child: Text(
                           kp,
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontSize: 14,
                             color: secCol,
                             height: 1.5,
@@ -636,11 +676,11 @@ class _UploadScreenState extends State<UploadScreen>
         const SizedBox(height: 24),
         // CTA
         AppTheme.gradientButton(
-          label: 'Start Learning',
+          label: 'Start learning',
           width: double.infinity,
           onTap: () => Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
+            AppPageRoute(
               builder: (_) => ModeSelectScreen(content: _result!),
             ),
           ),

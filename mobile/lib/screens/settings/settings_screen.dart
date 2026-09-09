@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
-import '../../widgets/glass_nav.dart';
-import '../session/learn_screen.dart';
+import '../../widgets/app_page_route.dart';
 import '../legal/privacy_policy_screen.dart';
 import '../legal/terms_screen.dart';
 import '../legal/about_screen.dart';
@@ -21,22 +20,70 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  User? _user;
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   String _version = '1.0.0';
   int _voiceSpeed = 1; // 0=slow, 1=normal, 2=fast
   String _selectedVoice = 'aura-luna-en';
   ThemeMode _themeMode = ThemeMode.system;
+  PermissionStatus _micPermissionStatus = PermissionStatus.denied;
 
   @override
   void initState() {
     super.initState();
-    _user = FirebaseAuth.instance.currentUser;
+    WidgetsBinding.instance.addObserver(this);
     _loadAppInfo();
     const speeds = {'slow': 0, 'normal': 1, 'fast': 2};
     _voiceSpeed = speeds[ApiService.voiceSpeed] ?? 1;
     _selectedVoice = ApiService.voiceId;
     _themeMode = ThemeService.currentThemeMode;
+    _checkMicPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkMicPermission();
+    }
+  }
+
+  Future<void> _checkMicPermission() async {
+    try {
+      final status = await Permission.microphone.status;
+      if (mounted) {
+        setState(() => _micPermissionStatus = status);
+      }
+    } catch (e) {
+      print('[SETTINGS] Error checking mic permission: $e');
+    }
+  }
+
+  String get _micSubtitle {
+    if (_micPermissionStatus.isGranted || _micPermissionStatus.isLimited) {
+      return 'Enabled — tap to learn more';
+    } else if (_micPermissionStatus.isPermanentlyDenied) {
+      return 'Blocked — tap to open settings';
+    } else if (_micPermissionStatus.isRestricted) {
+      return 'Restricted by device';
+    } else {
+      return 'Disabled — tap to enable';
+    }
+  }
+
+  Color get _micSubtitleColor {
+    if (_micPermissionStatus.isGranted || _micPermissionStatus.isLimited) {
+      return AppTheme.success;
+    } else if (_micPermissionStatus.isPermanentlyDenied) {
+      return AppTheme.error;
+    } else {
+      return AppTheme.warning;
+    }
   }
 
   Future<void> _loadAppInfo() async {
@@ -46,19 +93,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {}
   }
 
-  void _onNavTap(int index) {
-    if (index == 0) Navigator.pushReplacementNamed(context, '/home');
-    if (index == 1) Navigator.pushReplacementNamed(context, '/library');
-    if (index == 2) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
-      );
-    }
-    if (index == 3) Navigator.pushReplacementNamed(context, '/dashboard');
-    if (index == 4) return;
-  }
-
   Future<void> _clearCache() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -66,28 +100,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppTheme.dynamicCard(context),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-        title: Text('Clear Local Storage',
-            style: GoogleFonts.poppins(
+        title: Text('Clear local storage',
+            style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
                 color: AppTheme.dynamicText(context))),
         content: Text(
           'This will delete all locally stored PDFs, summaries, and '
           'cached content from this device. Your cloud progress is safe. '
           'This cannot be undone.',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
               fontSize: 14, color: AppTheme.dynamicSecondaryText(context)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text('Cancel',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                     color: AppTheme.dynamicSecondaryText(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text('Clear',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                     color: AppTheme.error, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -98,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Local storage cleared',
-              style: GoogleFonts.poppins(fontSize: 13)),
+              style: GoogleFonts.dmSans(fontSize: 13)),
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -116,24 +150,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppTheme.dynamicCard(context),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-        title: Text('Sign Out',
-            style: GoogleFonts.poppins(
+        title: Text('Sign out',
+            style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
                 color: AppTheme.dynamicText(context))),
         content: Text('Your study content will remain on this device.',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
                 fontSize: 14, color: AppTheme.dynamicSecondaryText(context))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text('Cancel',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                     color: AppTheme.dynamicSecondaryText(context))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Sign Out',
-                style: GoogleFonts.poppins(
+            child: Text('Sign out',
+                style: GoogleFonts.dmSans(
                     color: AppTheme.error, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -149,19 +183,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = _user?.displayName ?? 'User';
-    final email = _user?.email ?? '';
-    final photo = _user?.photoURL;
     final docCount = Hive.box('content_box').length;
     final isDark = AppTheme.isDark(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+      extendBody: true,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -173,7 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           if (Navigator.canPop(context)) {
                             Navigator.pop(context);
                           } else {
-                            Navigator.pushReplacementNamed(context, '/home');
+                            Navigator.pushReplacementNamed(context, '/profile');
                           }
                         },
                         child: Container(
@@ -195,23 +230,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                       ),
-                      Text('Settings',
-                          style: GoogleFonts.poppins(
+                      Text('SETTINGS',
+                          style: GoogleFonts.dmSans(
                               fontWeight: FontWeight.w700,
                               fontSize: 26,
                               color: AppTheme.dynamicText(context),
-                              letterSpacing: -0.5)),
+                              letterSpacing: 1.2)),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  // ── ACCOUNT SECTION ──────────────────────────────────
-                  _buildSectionLabel('Account'),
-                  _buildProfileCard(photo, name, email),
-                  const SizedBox(height: 16),
-
                   // ── PREFERENCES SECTION ──────────────────────────────
-                  _buildSectionLabel('Preferences'),
+                  _buildSectionLabel('PREFERENCES'),
                   _buildCard(children: [
                     // Theme Mode Selector
                     Padding(
@@ -219,11 +249,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSubLabel('App Theme'),
+                          _buildSubLabel('APP THEME'),
                           const SizedBox(height: 4),
                           Text(
                             'Automatically adapts to device settings or select preferred mode.',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.dmSans(
                                 fontSize: 12,
                                 color: AppTheme.dynamicSecondaryText(context)),
                           ),
@@ -251,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSubLabel('Tutor Voice Speed'),
+                          _buildSubLabel('VOICE SPEED'),
                           const SizedBox(height: 10),
                           Row(
                             children: ['Slow', 'Normal', 'Fast']
@@ -290,7 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(e.value,
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.dmSans(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
                                             color: active
@@ -302,7 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             }).toList(),
                           ),
                           const SizedBox(height: 16),
-                          _buildSubLabel('Tutor Voice'),
+                          _buildSubLabel('TUTOR VOICE'),
                           const SizedBox(height: 10),
                           Wrap(
                             spacing: 8,
@@ -322,17 +352,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
 
                   // ── PRIVACY & DATA SECTION ────────────────────────────
-                  _buildSectionLabel('Privacy & Data'),
+                  _buildSectionLabel('PRIVACY & DATA'),
                   _buildCard(children: [
                     _buildSettingRow(
                       icon: Icons.storage_rounded,
                       iconColor: AppTheme.primaryBlue,
-                      title: 'Local Storage',
+                      title: 'Local storage',
                       subtitle: '$docCount document${docCount != 1 ? 's' : ''} on this device',
                       trailing: GestureDetector(
                         onTap: _clearCache,
                         child: Text('Clear',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.dmSans(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
                                 color: AppTheme.error)),
@@ -343,21 +373,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.mic_rounded,
                       iconColor: AppTheme.cyanAccent,
                       title: 'Microphone',
-                      subtitle: 'Used for voice input only',
+                      subtitle: _micSubtitle,
+                      subtitleColor: _micSubtitleColor,
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
-                      onTap: () {},
+                      onTap: _handleMicrophoneTap,
                     ),
                   ]),
                   const SizedBox(height: 16),
 
                   // ── HELP & SUPPORT SECTION ────────────────────────────
-                  _buildSectionLabel('Help & Support'),
+                  _buildSectionLabel('HELP & SUPPORT'),
                   _buildCard(children: [
                     _buildSettingRow(
                       icon: Icons.email_outlined,
                       iconColor: AppTheme.primaryBlue,
-                      title: 'Contact Support',
+                      title: 'Contact support',
                       subtitle: 'support@socratiq.app',
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
@@ -367,7 +398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildSettingRow(
                       icon: Icons.bug_report_outlined,
                       iconColor: AppTheme.warning,
-                      title: 'Report a Problem',
+                      title: 'Report a problem',
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
                       onTap: () {},
@@ -376,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
 
                   // ── LEGAL SECTION ─────────────────────────────────────
-                  _buildSectionLabel('Legal'),
+                  _buildSectionLabel('LEGAL'),
                   _buildCard(children: [
                     _buildSettingRow(
                       icon: Icons.privacy_tip_outlined,
@@ -385,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
                       onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
+                          AppPageRoute(
                               builder: (_) => const PrivacyPolicyScreen())),
                     ),
                     _buildDivider(),
@@ -396,31 +427,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
                       onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
+                          AppPageRoute(
                               builder: (_) => const TermsScreen())),
                     ),
                     _buildDivider(),
                     _buildSettingRow(
                       icon: Icons.info_outline_rounded,
                       iconColor: AppTheme.secondaryText,
-                      title: 'About Socratiq',
+                      title: 'About SocratiQ',
                       subtitle: 'v$_version',
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
                       onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
+                          AppPageRoute(
                               builder: (_) => const AboutScreen())),
                     ),
                   ]),
                   const SizedBox(height: 16),
 
                   // ── DANGER ZONE ───────────────────────────────────────
-                  _buildSectionLabel('Account Actions'),
+                  _buildSectionLabel('ACCOUNT ACTIONS'),
                   _buildCard(children: [
                     _buildSettingRow(
                       icon: Icons.logout_rounded,
                       iconColor: AppTheme.error,
-                      title: 'Sign Out',
+                      title: 'Sign out',
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
                       onTap: _signOut,
@@ -429,12 +460,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _buildSettingRow(
                       icon: Icons.delete_forever_rounded,
                       iconColor: AppTheme.error,
-                      title: 'Delete Account',
+                      title: 'Delete account',
                       subtitle: 'Permanently delete all data',
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.lightText, size: 18),
                       onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
+                          AppPageRoute(
                               builder: (_) => const DeleteAccountScreen())),
                     ),
                   ]),
@@ -442,12 +473,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: GlassNav(currentIndex: 4, onTap: _onNavTap),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -458,11 +485,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 4),
       child: Text(label,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 13,
+              fontSize: 11,
               color: AppTheme.primaryBlue,
-              letterSpacing: 0.5)),
+              letterSpacing: 1.4)),
     );
   }
 
@@ -484,9 +511,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Text(label,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 14,
+              fontSize: 13,
+              letterSpacing: 1.0,
               color: AppTheme.dynamicText(context))),
     );
   }
@@ -504,6 +532,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Color iconColor,
     required String title,
     String? subtitle,
+    Color? subtitleColor,
     Widget? trailing,
     VoidCallback? onTap,
   }) {
@@ -528,76 +557,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                           color: AppTheme.dynamicText(context))),
                   if (subtitle != null)
                     Text(subtitle,
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                             fontSize: 12,
-                            color: AppTheme.dynamicSecondaryText(context))),
+                            fontWeight: subtitleColor != null
+                                ? FontWeight.w400
+                                : FontWeight.normal,
+                            color: subtitleColor ??
+                                AppTheme.dynamicSecondaryText(context))),
                 ],
               ),
             ),
             if (trailing != null) trailing,
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildProfileCard(String? photo, String name, String email) {
-    final isDark = AppTheme.isDark(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.dynamicCard(context),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
-        boxShadow: isDark ? null : AppTheme.cardShadow,
-      ),
-      child: Row(
-        children: [
-          photo != null
-              ? CircleAvatar(radius: 28, backgroundImage: NetworkImage(photo))
-              : Container(
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : 'S',
-                    style: GoogleFonts.poppins(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white),
-                  ),
-                ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                        color: AppTheme.dynamicText(context))),
-                Text(email,
-                    style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: AppTheme.dynamicSecondaryText(context)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -640,7 +618,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 5),
               Text(
                 label,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                   color: active
@@ -679,12 +657,366 @@ class _SettingsScreenState extends State<SettingsScreen> {
           boxShadow: active ? AppTheme.buttonShadow : null,
         ),
         child: Text(name,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
                 color: active
                     ? Colors.white
                     : AppTheme.dynamicSecondaryText(context))),
+      ),
+    );
+  }
+
+  // ── MICROPHONE PERMISSION FLOW ─────────────────────────────────────────────
+
+  Future<void> _handleMicrophoneTap() async {
+    final status = await Permission.microphone.status;
+    if (mounted) {
+      setState(() => _micPermissionStatus = status);
+    }
+
+    if (!mounted) return;
+
+    if (status.isGranted || status.isLimited) {
+      _showGrantedBottomSheet();
+    } else if (status.isDenied || status.isPermanentlyDenied) {
+      _showDeniedBottomSheet();
+    } else if (status.isRestricted) {
+      _showRestrictedBottomSheet();
+    } else {
+      _showDeniedBottomSheet();
+    }
+  }
+
+  void _showGrantedBottomSheet() {
+    final isDark = AppTheme.isDark(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: BoxDecoration(
+          color: AppTheme.dynamicCard(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.dynamicDivider(ctx),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.success.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_rounded,
+                      color: AppTheme.success, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Microphone Access',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.dynamicText(ctx),
+                        ),
+                      ),
+                      Text(
+                        'Permission is active',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: AppTheme.success,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Microphone access is enabled. SocratiQ uses it only for voice input during tutoring sessions. To revoke access go to Settings → Apps → SocratiQ → Permissions.',
+              style: GoogleFonts.dmSans(
+                fontSize: 14,
+                height: 1.5,
+                color: AppTheme.dynamicSecondaryText(ctx),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Close',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeniedBottomSheet() {
+    final isDark = AppTheme.isDark(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: BoxDecoration(
+          color: AppTheme.dynamicCard(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.dynamicDivider(ctx),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.warning.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.mic_off_rounded,
+                      color: AppTheme.warning, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Microphone Disabled',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.dynamicText(ctx),
+                        ),
+                      ),
+                      Text(
+                        'Voice input will not work',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: AppTheme.warning,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Microphone access is disabled. Voice input will not work. To enable it, open device Settings.',
+              style: GoogleFonts.dmSans(
+                fontSize: 14,
+                height: 1.5,
+                color: AppTheme.dynamicSecondaryText(ctx),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: isDark
+                              ? AppTheme.darkCardBorder
+                              : AppTheme.divider,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusPill),
+                        ),
+                      ),
+                      child: Text(
+                        'Not now',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.dynamicSecondaryText(ctx),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await openAppSettings();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusPill),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Open settings',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRestrictedBottomSheet() {
+    final isDark = AppTheme.isDark(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: BoxDecoration(
+          color: AppTheme.dynamicCard(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: isDark ? Border.all(color: AppTheme.darkCardBorder) : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.dynamicDivider(ctx),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryText.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.block_rounded,
+                      color: AppTheme.secondaryText, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Microphone Restricted',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.dynamicText(ctx),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Microphone access is restricted by your device administrator or parental controls.',
+              style: GoogleFonts.dmSans(
+                fontSize: 14,
+                height: 1.5,
+                color: AppTheme.dynamicSecondaryText(ctx),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Close',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

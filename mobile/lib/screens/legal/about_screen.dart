@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../app_theme.dart';
+import '../../widgets/app_page_route.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_screen.dart';
 
@@ -45,10 +46,11 @@ class _AboutScreenState extends State<AboutScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('About',
-            style: GoogleFonts.poppins(
+        title: Text('ABOUT',
+            style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
-                fontSize: 18,
+                fontSize: 16,
+                letterSpacing: 1.2,
                 color: textCol)),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -74,23 +76,24 @@ class _AboutScreenState extends State<AboutScreen> {
                       width: 72, height: 72),
                   const SizedBox(height: 12),
                   Text('SocratiQ',
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 24,
+                      style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 22,
+                          letterSpacing: -0.3,
                           color: textCol)),
                   Text('Version $_version (Build $_buildNumber)',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                           fontSize: 13,
                           color: secCol)),
                   const SizedBox(height: 8),
                   Text('Learn Smarter. Not Harder.',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                           fontSize: 13,
                           color: AppTheme.primaryBlue,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 16),
-                  Text('© 2026 Socratiq. All rights reserved.',
-                      style: GoogleFonts.poppins(
+                  Text('© 2026 SocratiQ. All rights reserved.',
+                      style: GoogleFonts.dmSans(
                           fontSize: 12,
                           color: secCol.withOpacity(0.7))),
                 ],
@@ -103,19 +106,19 @@ class _AboutScreenState extends State<AboutScreen> {
               icon: Icons.privacy_tip_outlined,
               title: 'Privacy Policy',
               onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+                  AppPageRoute(builder: (_) => const PrivacyPolicyScreen())),
             ),
             _buildLinkCard(
               context: context,
               icon: Icons.description_outlined,
               title: 'Terms of Service',
               onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const TermsScreen())),
+                  AppPageRoute(builder: (_) => const TermsScreen())),
             ),
             _buildLinkCard(
               context: context,
               icon: Icons.email_outlined,
-              title: 'Contact Support',
+              title: 'Contact support',
               subtitle: 'support@socratiq.app',
               onTap: () {},
             ),
@@ -170,13 +173,13 @@ class _AboutScreenState extends State<AboutScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 14,
                           color: textCol)),
                   if (subtitle != null)
                     Text(subtitle,
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                             fontSize: 12,
                             color: secCol)),
                 ],

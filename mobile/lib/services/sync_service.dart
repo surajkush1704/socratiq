@@ -23,22 +23,46 @@ class SyncService {
 
   // ── PROFILE SYNC ────────────────────────────────────────────────────────
 
-  /// Called on app launch after Firebase Auth completes.
-  /// Creates user profile in Firestore if first time.
-  static Future<Map<String, dynamic>> syncProfile() async {
+  /// Called on app launch after Firebase Auth completes, or on profile update.
+  /// Creates user profile in Firestore if first time, updates otherwise.
+  static Future<Map<String, dynamic>> syncProfile({
+    String? name,
+    String? username,
+    int? avatarId,
+  }) async {
     if (_uid.isEmpty) return {};
     try {
       print('[SYNC] Syncing profile for uid: ${_uid.substring(0, 8)}...');
-      final response = await _dio.post('/sync/profile', data: {
+      final payload = <String, dynamic>{
         'uid': _uid,
-        'name': _name,
+        'name': name ?? _name,
         'email': _email,
         'device_id': 'flutter_android',
-      });
+      };
+      if (username != null) {
+        payload['username'] = username;
+      }
+      if (avatarId != null) {
+        payload['avatar_id'] = avatarId;
+      }
+      final response = await _dio.post('/sync/profile', data: payload);
       print('[SYNC] Profile synced');
       return Map<String, dynamic>.from(response.data['profile'] ?? {});
     } catch (e) {
       print('[SYNC] Profile sync error: $e');
+      return {};
+    }
+  }
+
+  /// Fetch user profile from backend /sync/profile/{uid}
+  static Future<Map<String, dynamic>> getProfile([String? uid]) async {
+    final targetUid = uid ?? _uid;
+    if (targetUid.isEmpty) return {};
+    try {
+      final response = await _dio.get('/sync/profile/$targetUid');
+      return Map<String, dynamic>.from(response.data['profile'] ?? {});
+    } catch (e) {
+      print('[SYNC] Fetch profile error: $e');
       return {};
     }
   }

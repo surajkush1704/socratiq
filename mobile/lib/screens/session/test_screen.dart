@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
@@ -5,6 +6,7 @@ import '../../models/content_model.dart';
 import '../../models/mcq_model.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
+import '../../widgets/app_page_route.dart';
 import 'result_screen.dart';
 
 class TestScreen extends StatefulWidget {
@@ -104,11 +106,109 @@ class _TestScreenState extends State<TestScreen>
 
     } catch (e) {
       print('[TEST] Fetch questions error: $e');
-      setState(() {
-        _loadError = e.toString().replaceAll('Exception: ', '');
-        _loadingQuestions = false;
-      });
+      final fallbackQuestions = _generateLocalQuestions(
+        widget.content,
+        widget.questionCount,
+      );
+
+      if (fallbackQuestions.isNotEmpty) {
+        print('[TEST] Loaded ${fallbackQuestions.length} offline fallback questions');
+        if (mounted) {
+          setState(() {
+            _questions = fallbackQuestions;
+            _loadingQuestions = false;
+            _loadError = null;
+          });
+          _animateProgressTo(0);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _loadError = e.toString().replaceAll('Exception: ', '');
+          _loadingQuestions = false;
+        });
+      }
     }
+  }
+
+  List<MCQModel> _generateLocalQuestions(ContentModel content, int targetCount) {
+    final questions = <MCQModel>[];
+    final keyPoints = content.keyPoints;
+    final summary = content.summary;
+    final topics = content.topics;
+
+    if (keyPoints.isNotEmpty) {
+      for (int i = 0; i < keyPoints.length; i++) {
+        final kp = keyPoints[i];
+        final otherPoints = keyPoints.where((p) => p != kp).toList();
+
+        final options = <String>[
+          kp,
+          otherPoints.isNotEmpty ? 'Inverse proposition: opposite of standard behavior' : 'No relation to topic',
+          'Only applies under obsolete historical frameworks',
+          'Contradicts empirical observations in this chapter',
+        ]..shuffle();
+        final correctIdx = options.indexOf(kp);
+
+        questions.add(MCQModel(
+          question: 'According to the study material, which of the following is an established principle regarding "${topics.isNotEmpty ? topics[i % topics.length] : 'the chapter'}"?',
+          options: options,
+          correctIndex: correctIdx,
+          explanation: kp,
+          difficulty: i % 3 == 0 ? 'easy' : (i % 3 == 1 ? 'medium' : 'hard'),
+        ));
+
+        if (questions.length >= targetCount) break;
+
+        if (otherPoints.length >= 2) {
+          final q2Options = <String>[
+            kp,
+            'It was officially disproven by subsequent research',
+            otherPoints[0],
+            otherPoints[1],
+          ]..shuffle();
+          questions.add(MCQModel(
+            question: 'Which of the following is identified as a critical concept in ${content.documentName.replaceAll('.pdf', '')}?',
+            options: q2Options,
+            correctIndex: q2Options.indexOf(kp),
+            explanation: 'Document key principle: $kp',
+            difficulty: 'medium',
+          ));
+        }
+
+        if (questions.length >= targetCount) break;
+      }
+    }
+
+    if (questions.length < targetCount && summary.isNotEmpty) {
+      final sentences = summary
+          .split(RegExp(r'\. |\n'))
+          .map((s) => s.trim())
+          .where((s) => s.length > 20)
+          .toList();
+
+      for (final s in sentences) {
+        if (questions.length >= targetCount) break;
+        final opts = <String>[
+          s,
+          'A disproven hypothesis rejected by the author',
+          'An unrelated concept not addressed in this text',
+          'The exact opposite of the conclusion presented',
+        ]..shuffle();
+
+        questions.add(MCQModel(
+          question: 'Which statement accurately reflects the core analysis of this chapter?',
+          options: opts,
+          correctIndex: opts.indexOf(s),
+          explanation: s,
+          difficulty: 'easy',
+        ));
+      }
+    }
+
+    return questions;
   }
 
   void _animateProgressTo(int questionIndex) {
@@ -154,25 +254,25 @@ class _TestScreenState extends State<TestScreen>
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
           title: Text(
             '$unanswered question${unanswered > 1 ? 's' : ''} unanswered',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            style: GoogleFonts.dmSans(fontWeight: FontWeight.w700),
           ),
           content: Text(
             'You have not answered all questions. '
             'Unanswered questions will be marked wrong.',
-            style: GoogleFonts.poppins(
-                fontSize: 14, color: AppTheme.secondaryText),
+            style: GoogleFonts.dmSans(
+                fontSize: 14, color: AppTheme.secondaryText, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Go Back',
-                  style: GoogleFonts.poppins(
-                      color: AppTheme.primaryBlue)),
+              child: Text('Go back',
+                  style: GoogleFonts.dmSans(
+                      color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text('Submit Anyway',
-                  style: GoogleFonts.poppins(
+              child: Text('Submit anyway',
+                  style: GoogleFonts.dmSans(
                       color: AppTheme.error,
                       fontWeight: FontWeight.w600)),
             ),
@@ -236,7 +336,7 @@ class _TestScreenState extends State<TestScreen>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
+        AppPageRoute(
           builder: (_) => ResultScreen(
             content: widget.content,
             score: avgScoreOutOf10,
@@ -251,19 +351,37 @@ class _TestScreenState extends State<TestScreen>
       );
 
     } catch (e) {
-      print('[TEST] Submit error: $e');
-      setState(() => _submitting = false);
+      print('[TEST] Submit error: $e — computing score locally');
+      int localCorrect = 0;
+      for (int i = 0; i < _questions.length; i++) {
+        if (_selectedAnswers[i] == _questions[i].correctIndex) {
+          localCorrect++;
+        }
+      }
+      final localScoreOutOf10 = _questions.isNotEmpty
+          ? (localCorrect / _questions.length) * 10.0
+          : 0.0;
+      final label = localScoreOutOf10 >= 8.0
+          ? 'Excellent'
+          : (localScoreOutOf10 >= 5.0 ? 'Good' : 'Needs Practice');
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            'Failed to submit test: ${e.toString().replaceAll('Exception: ', '')}',
-            style: GoogleFonts.poppins(fontSize: 13),
+        setState(() => _submitting = false);
+        Navigator.pushReplacement(
+          context,
+          AppPageRoute(
+            builder: (_) => ResultScreen(
+              content: widget.content,
+              score: localScoreOutOf10,
+              totalQuestions: _questions.length,
+              correctAnswers: localCorrect,
+              questions: _questions,
+              userAnswers: _selectedAnswers,
+              weakTopics: widget.content.topics,
+              performanceLabel: label,
+            ),
           ),
-          backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
-        ));
+        );
       }
     }
   }
@@ -319,9 +437,9 @@ class _TestScreenState extends State<TestScreen>
             const SizedBox(height: 24),
             Text(
               'Preparing your test...',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
-                fontSize: 18,
+                fontSize: 16,
                 color: textCol,
               ),
             ),
@@ -329,7 +447,7 @@ class _TestScreenState extends State<TestScreen>
             Text(
               'Generating ${widget.questionCount} questions\nfrom your document',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 color: secCol,
                 height: 1.5,
@@ -358,10 +476,10 @@ class _TestScreenState extends State<TestScreen>
       builder: (_, value, __) {
         return Text(
           stages[value.clamp(0, stages.length - 1)],
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontSize: 13,
             color: AppTheme.cyanAccent,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
           ),
         );
       },
@@ -389,9 +507,9 @@ class _TestScreenState extends State<TestScreen>
           const SizedBox(height: 20),
           Text(
             'Could not generate test',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 20,
+              fontSize: 18,
               color: AppTheme.navyText,
             ),
           ),
@@ -399,7 +517,7 @@ class _TestScreenState extends State<TestScreen>
           Text(
             _loadError ?? 'Unknown error',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 14,
               color: AppTheme.secondaryText,
               height: 1.5,
@@ -407,7 +525,7 @@ class _TestScreenState extends State<TestScreen>
           ),
           const SizedBox(height: 32),
           AppTheme.gradientButton(
-            label: 'Try Again',
+            label: 'Try again',
             width: 200,
             onTap: _fetchQuestions,
           ),
@@ -415,8 +533,8 @@ class _TestScreenState extends State<TestScreen>
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Text(
-              'Go Back',
-              style: GoogleFonts.poppins(
+              'Go back',
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 color: AppTheme.primaryBlue,
                 fontWeight: FontWeight.w600,
@@ -475,26 +593,28 @@ class _TestScreenState extends State<TestScreen>
                   shape: RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(AppTheme.radiusMedium)),
-                  title: Text('Exit Test?',
-                      style: GoogleFonts.poppins(
+                  title: Text('Exit test?',
+                      style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w700)),
                   content: Text(
                     'Your progress will be lost.',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                         fontSize: 14,
-                        color: AppTheme.secondaryText),
+                        color: AppTheme.secondaryText,
+                        height: 1.5),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
                       child: Text('Continue',
-                          style: GoogleFonts.poppins(
-                              color: AppTheme.primaryBlue)),
+                          style: GoogleFonts.dmSans(
+                              color: AppTheme.primaryBlue,
+                              fontWeight: FontWeight.w600)),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(context, true),
                       child: Text('Exit',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                               color: AppTheme.error,
                               fontWeight: FontWeight.w600)),
                     ),
@@ -524,17 +644,18 @@ class _TestScreenState extends State<TestScreen>
               children: [
                 Text(
                   'Question ${_currentIndex + 1} of ${_questions.length}',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 15,
                     color: AppTheme.dynamicText(context),
                   ),
                 ),
                 Text(
                   '$answeredCount answered',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     color: AppTheme.dynamicSecondaryText(context),
+                    letterSpacing: 0.1,
                   ),
                 ),
               ],
@@ -550,10 +671,11 @@ class _TestScreenState extends State<TestScreen>
             ),
             child: Text(
               '$answeredCount/${_questions.length}',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.primaryBlue,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
@@ -648,10 +770,11 @@ class _TestScreenState extends State<TestScreen>
                 ),
                 child: Text(
                   'Q${_currentIndex + 1}',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.primaryBlue,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ),
@@ -671,7 +794,7 @@ class _TestScreenState extends State<TestScreen>
                     const SizedBox(width: 4),
                     Text(
                       diffLabel,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: diffColor,
@@ -685,9 +808,9 @@ class _TestScreenState extends State<TestScreen>
           const SizedBox(height: 12),
           Text(
             question.question,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 17,
+              fontSize: 16,
               color: AppTheme.dynamicText(context),
               height: 1.5,
             ),
@@ -744,9 +867,9 @@ class _TestScreenState extends State<TestScreen>
                 alignment: Alignment.center,
                 child: Text(
                   ['A', 'B', 'C', 'D'][i],
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: 13,
                     color: selected
                         ? Colors.white
                         : secCol,
@@ -758,14 +881,15 @@ class _TestScreenState extends State<TestScreen>
               Expanded(
                 child: Text(
                   question.options[i],
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
                     fontWeight: selected
                         ? FontWeight.w600
                         : FontWeight.w400,
                     color: selected
                         ? textCol
                         : secCol,
+                    height: 1.4,
                   ),
                 ),
               ),
@@ -817,7 +941,7 @@ class _TestScreenState extends State<TestScreen>
                         const SizedBox(width: 6),
                         Text(
                           'Previous',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.navyText,
@@ -868,10 +992,10 @@ class _TestScreenState extends State<TestScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              isLast ? 'Finish Test' : 'Next',
-                              style: GoogleFonts.poppins(
+                              isLast ? 'Finish test' : 'Next',
+                              style: GoogleFonts.dmSans(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontSize: 14,
                                 color: (selectedIdx != null || isLast)
                                     ? Colors.white
                                     : AppTheme.lightText,
@@ -900,7 +1024,7 @@ class _TestScreenState extends State<TestScreen>
             padding: const EdgeInsets.only(top: 10),
             child: Text(
               'Select an answer to continue',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontSize: 12,
                 color: AppTheme.lightText,
               ),

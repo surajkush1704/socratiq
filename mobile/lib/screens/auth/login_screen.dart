@@ -1,4 +1,5 @@
-import 'dart:ui';
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
@@ -14,6 +15,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _captchaController = TextEditingController();
+
   bool _isSignUp = false;
   bool _loading = false;
   bool _obscurePassword = true;
@@ -21,11 +24,33 @@ class _LoginScreenState extends State<LoginScreen> {
   int _rateLimitCountdown = 0;
   bool _isRateLimited = false;
 
+  String _captchaCode = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _generateCaptcha();
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _captchaController.dispose();
     super.dispose();
+  }
+
+  void _generateCaptcha() {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    final random = math.Random();
+    final buffer = StringBuffer();
+    for (int i = 0; i < 5; i++) {
+      buffer.write(chars[random.nextInt(chars.length)]);
+    }
+    setState(() {
+      _captchaCode = buffer.toString();
+      _captchaController.clear();
+    });
   }
 
   void _startRateLimitCountdown(int seconds) {
@@ -58,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _startRateLimitCountdown(e.retryAfterSeconds);
           _showError(e.message);
         } else {
-          _showError('Sign in failed. Please try again.');
+          _showError('Google sign in failed. Please try again.');
         }
       }
     } finally {
@@ -73,6 +98,20 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError('Please fill in all fields');
       return;
     }
+
+    if (_isSignUp) {
+      final enteredCaptcha = _captchaController.text.trim().toUpperCase();
+      if (enteredCaptcha.isEmpty) {
+        _showError('Please solve the captcha verification.');
+        return;
+      }
+      if (enteredCaptcha != _captchaCode) {
+        _generateCaptcha();
+        _showError('Incorrect captcha code. Please try the new code.');
+        return;
+      }
+    }
+
     setState(() => _loading = true);
     try {
       final result = _isSignUp
@@ -83,14 +122,20 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        if (_isSignUp) _generateCaptcha();
         if (e is AuthRateLimitException) {
           _startRateLimitCountdown(e.retryAfterSeconds);
           _showError(e.message);
         } else if (e.toString().contains('wrong-password') ||
-            e.toString().contains('user-not-found')) {
+            e.toString().contains('user-not-found') ||
+            e.toString().contains('invalid-credential')) {
           _showError('Invalid email or password.');
         } else if (e.toString().contains('email-already-in-use')) {
           _showError('An account already exists with this email.');
+        } else if (e.toString().contains('weak-password')) {
+          _showError('Password should be at least 6 characters.');
+        } else if (e.toString().contains('invalid-email')) {
+          _showError('Please enter a valid email address.');
         } else {
           _showError('Authentication failed. Please try again.');
         }
@@ -102,12 +147,38 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: GoogleFonts.poppins(fontSize: 13)),
+      content: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              msg,
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
       backgroundColor: AppTheme.error,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusSmall)),
     ));
+  }
+
+  void _showForgotPasswordSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ForgotPasswordSheet(
+        initialEmail: _emailController.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -124,39 +195,39 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
+            padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _isSignUp ? 'Create account' : 'Welcome back',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
-                    fontSize: 32,
+                    fontSize: 30,
                     color: textCol,
-                    letterSpacing: -1,
+                    letterSpacing: -0.5,
                   ),
                 ),
                 Text(
                   _isSignUp
                       ? 'Start learning smarter today'
                       : 'to SocratiQ',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 18,
                     color: AppTheme.primaryBlue,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Your personal AI tutor awaits.',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 14,
                     color: secCol,
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
                 // Glass card
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -207,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(width: 10),
                               Text(
                                 'Continue with Google',
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.dmSans(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
                                   color: textCol,
@@ -217,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
                       // Divider
                       Row(
                         children: [
@@ -227,7 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 horizontal: 12),
                             child: Text(
                               'or',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 13,
                                 color: secCol,
                               ),
@@ -236,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(child: Divider(color: borderColor)),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
                       // Email field
                       _buildTextField(
                         controller: _emailController,
@@ -262,6 +333,35 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+
+                      // Forgot password option in Sign In mode
+                      if (!_isSignUp) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: _showForgotPasswordSheet,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                'Forgot password?',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // Captcha Verification in Sign Up mode
+                      if (_isSignUp) ...[
+                        const SizedBox(height: 16),
+                        _buildCaptchaWidget(isDark, borderColor, textCol, secCol),
+                      ],
+
                       const SizedBox(height: 20),
                       // Main button
                       GestureDetector(
@@ -289,10 +389,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Text(
                                   _isRateLimited
                                       ? 'Wait $_rateLimitCountdown seconds...'
-                                      : (_isSignUp ? 'Create Account' : 'Login'),
-                                  style: GoogleFonts.poppins(
+                                      : (_isSignUp ? 'Create account' : 'Login'),
+                                  style: GoogleFonts.dmSans(
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 15,
+                                    fontSize: 14,
                                     color: _isRateLimited
                                         ? secCol
                                         : Colors.white,
@@ -303,13 +403,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                       // Toggle
                       GestureDetector(
-                        onTap: () =>
-                            setState(() => _isSignUp = !_isSignUp),
+                        onTap: () {
+                          setState(() {
+                            _isSignUp = !_isSignUp;
+                            if (_isSignUp) _generateCaptcha();
+                          });
+                        },
                         child: Text(
                           _isSignUp
-                              ? 'Already have an account? Login'
+                              ? 'Already have an account? Sign in'
                               : 'Don\'t have an account? Sign up',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.primaryBlue,
@@ -324,6 +428,96 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCaptchaWidget(
+      bool isDark, Color borderColor, Color textCol, Color secCol) {
+    final colors = [
+      const Color(0xFF2563EB),
+      const Color(0xFF0891B2),
+      const Color(0xFF7C3AED),
+      const Color(0xFFDB2777),
+      const Color(0xFF059669),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusSmall),
+                  border: Border.all(
+                    color: isDark
+                        ? AppTheme.darkCardBorder
+                        : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: CustomPaint(
+                  painter: _CaptchaBackgroundPainter(
+                    seed: _captchaCode.hashCode,
+                    isDark: isDark,
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(_captchaCode.length, (i) {
+                        final char = _captchaCode[i];
+                        final color = colors[i % colors.length];
+                        final tilt = ((i % 3) - 1) * 0.12;
+                        return Transform.rotate(
+                          angle: tilt,
+                          child: Text(
+                            char,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 4,
+                              color: color,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppTheme.darkBackgroundAlt
+                    : AppTheme.background,
+                borderRadius:
+                    BorderRadius.circular(AppTheme.radiusSmall),
+                border: Border.all(color: borderColor),
+              ),
+              child: IconButton(
+                onPressed: _generateCaptcha,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                color: AppTheme.primaryBlue,
+                tooltip: 'Get new captcha',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _buildTextField(
+          controller: _captchaController,
+          hint: 'Enter captcha code above',
+          icon: Icons.verified_user_outlined,
+        ),
+      ],
     );
   }
 
@@ -348,11 +542,11 @@ class _LoginScreenState extends State<LoginScreen> {
       child: TextField(
         controller: controller,
         obscureText: obscure,
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.dmSans(
             fontSize: 14, color: textCol),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: GoogleFonts.poppins(
+          hintStyle: GoogleFonts.dmSans(
               fontSize: 14, color: secCol),
           prefixIcon: Icon(icon, color: secCol, size: 18),
           suffixIcon: suffix != null
@@ -363,6 +557,510 @@ class _LoginScreenState extends State<LoginScreen> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
               horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptchaBackgroundPainter extends CustomPainter {
+  final int seed;
+  final bool isDark;
+
+  _CaptchaBackgroundPainter({required this.seed, required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rand = math.Random(seed);
+    final linePaint = Paint()
+      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.08)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < 3; i++) {
+      final path = Path();
+      path.moveTo(0, rand.nextDouble() * size.height);
+      path.quadraticBezierTo(
+        size.width / 2,
+        rand.nextDouble() * size.height,
+        size.width,
+        rand.nextDouble() * size.height,
+      );
+      canvas.drawPath(path, linePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CaptchaBackgroundPainter oldDelegate) =>
+      oldDelegate.seed != seed || oldDelegate.isDark != isDark;
+}
+
+// ── FORGOT PASSWORD MODAL WITH 10-MINUTE COUNTDOWN ────────────────────────────
+
+class _ForgotPasswordSheet extends StatefulWidget {
+  final String initialEmail;
+
+  const _ForgotPasswordSheet({required this.initialEmail});
+
+  @override
+  State<_ForgotPasswordSheet> createState() => _ForgotPasswordSheetState();
+}
+
+class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
+  late final TextEditingController _resetEmailController;
+  bool _loading = false;
+  bool _sent = false;
+  int _secondsRemaining = 0;
+  Timer? _timer;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetEmailController = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _resetEmailController.dispose();
+    super.dispose();
+  }
+
+  void _startCountdown() {
+    _timer?.cancel();
+    setState(() {
+      _secondsRemaining = 600; // 10 minutes
+      _sent = true;
+      _errorMessage = null;
+    });
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  String _formatTime(int totalSeconds) {
+    final m = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final s = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  Future<void> _handleSendReset() async {
+    final email = _resetEmailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _errorMessage = 'Please enter a valid email address');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await AuthService.sendPasswordResetEmail(email);
+      if (mounted) {
+        _startCountdown();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if (e.toString().contains('user-not-found')) {
+            _errorMessage = 'No user found with this email address.';
+          } else if (e.toString().contains('invalid-email')) {
+            _errorMessage = 'Please enter a valid email address.';
+          } else {
+            _errorMessage = 'Failed to send reset link. Please try again.';
+          }
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final cardBg = AppTheme.dynamicCard(context);
+    final textCol = AppTheme.dynamicText(context);
+    final secCol = AppTheme.dynamicSecondaryText(context);
+    final borderColor = AppTheme.dynamicDivider(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.radiusLarge),
+          ),
+          border: Border.all(color: borderColor),
+          boxShadow: isDark ? [] : AppTheme.glassShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Icon + Title
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lock_reset_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reset password',
+                        style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20,
+                          color: textCol,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      Text(
+                        'We\'ll email you a recovery link',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 13,
+                          color: secCol,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            if (_errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.error.withOpacity(0.12),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusSmall),
+                  border: Border.all(
+                      color: AppTheme.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        color: AppTheme.error, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: AppTheme.error,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (!_sent) ...[
+              Text(
+                'Enter your email address and we will send you a password reset link valid for 10 minutes.',
+                style: GoogleFonts.dmSans(fontSize: 13, color: secCol),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.darkBackgroundAlt
+                      : AppTheme.background,
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusSmall),
+                  border: Border.all(color: borderColor),
+                ),
+                child: TextField(
+                  controller: _resetEmailController,
+                  style: GoogleFonts.dmSans(
+                      fontSize: 14, color: textCol),
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'Email address',
+                    hintStyle: GoogleFonts.dmSans(
+                        fontSize: 14, color: secCol),
+                    prefixIcon: Icon(Icons.email_outlined,
+                        color: secCol, size: 18),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: _loading ? null : _handleSendReset,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.radiusPill),
+                    boxShadow: AppTheme.buttonShadow,
+                  ),
+                  alignment: Alignment.center,
+                  child: _loading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'Send reset link',
+                          style: GoogleFonts.dmSans(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ] else ...[
+              // Live countdown card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFFF0FDF4),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.success.withOpacity(0.35),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.success.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.mark_email_read_rounded,
+                            color: AppTheme.success,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Reset link sent!',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: textCol,
+                                ),
+                              ),
+                              Text(
+                                _resetEmailController.text.trim(),
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 12,
+                                  color: secCol,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.timer_outlined,
+                              size: 16,
+                              color: AppTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Link valid for:',
+                              style: GoogleFonts.dmSans(
+                                fontSize: 13,
+                                color: secCol,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryBlue
+                                .withOpacity(0.12),
+                            borderRadius:
+                                BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            _formatTime(_secondsRemaining),
+                            style: GoogleFonts.dmSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryBlue,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: _secondsRemaining / 600.0,
+                        backgroundColor: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.06),
+                        valueColor: const AlwaysStoppedAnimation(
+                            AppTheme.primaryBlue),
+                        minHeight: 5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Please check your inbox (and spam folder). Click the link in the email to set a new password before the 10-minute timer expires.',
+                style: GoogleFonts.dmSans(
+                  fontSize: 12,
+                  color: secCol,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(color: borderColor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusPill),
+                        ),
+                      ),
+                      child: Text(
+                        'Done',
+                        style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: textCol,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: (_secondsRemaining <= 0 && !_loading)
+                          ? _handleSendReset
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                        disabledBackgroundColor:
+                            isDark ? AppTheme.darkDivider : AppTheme.divider,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusPill),
+                        ),
+                      ),
+                      child: Text(
+                        _secondsRemaining > 0
+                            ? 'Resend in ${_formatTime(_secondsRemaining)}'
+                            : 'Resend link',
+                        style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: _secondsRemaining > 0
+                              ? secCol
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );

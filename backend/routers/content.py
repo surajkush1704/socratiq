@@ -77,4 +77,7 @@ async def process_document(body: ContentProcessRequest):
         "summary": result.get("summary", ""),
         "key_points": result.get("key_points", []),
         "topics": result.get("topics", []),
+        "document_language": result.get("document_language", "en"),
+        "response_language": result.get("response_language", "en"),
+        "language_display_name": result.get("language_display_name", "English"),
     }

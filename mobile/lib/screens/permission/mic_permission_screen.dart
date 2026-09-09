@@ -24,27 +24,27 @@ class MicPermissionScreen extends StatelessWidget {
         builder: (_) => AlertDialog(
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-          title: Text('Microphone Access Required',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+          title: Text('Microphone access required',
+              style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
           content: Text(
             'Microphone access was permanently denied. '
             'Please enable it in Settings → Apps → Socratiq → Permissions.',
-            style: GoogleFonts.poppins(fontSize: 14,
-                color: AppTheme.secondaryText),
+            style: GoogleFonts.dmSans(fontSize: 14,
+                color: AppTheme.secondaryText, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel',
-                  style: GoogleFonts.poppins(color: AppTheme.secondaryText)),
+                  style: GoogleFonts.dmSans(color: AppTheme.secondaryText)),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 openAppSettings();
               },
-              child: Text('Open Settings',
-                  style: GoogleFonts.poppins(
+              child: Text('Open settings',
+                  style: GoogleFonts.dmSans(
                       color: AppTheme.primaryBlue,
                       fontWeight: FontWeight.w600)),
             ),
@@ -64,6 +64,14 @@ class MicPermissionScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: BackButton(
+          color: textCol,
+          onPressed: onDenied,
+        ),
+      ),
       body: Container(
         decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
         child: SafeArea(
@@ -87,12 +95,12 @@ class MicPermissionScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  'Microphone Access',
-                  style: GoogleFonts.poppins(
+                  'Microphone access',
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
-                    fontSize: 24,
+                    fontSize: 22,
                     color: textCol,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -101,8 +109,8 @@ class MicPermissionScreen extends StatelessWidget {
                   'speak to your AI tutor — just like talking '
                   'to a real teacher.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
                     color: secCol,
                     height: 1.6,
                   ),
@@ -126,7 +134,7 @@ class MicPermissionScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 40),
                 AppTheme.gradientButton(
-                  label: 'Allow Microphone Access',
+                  label: 'Allow microphone access',
                   width: double.infinity,
                   onTap: () => _requestPermission(context),
                 ),
@@ -135,7 +143,7 @@ class MicPermissionScreen extends StatelessWidget {
                   onTap: onDenied,
                   child: Text(
                     'Not now — I\'ll use text instead',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontSize: 14,
                       color: secCol,
                     ),
@@ -167,10 +175,10 @@ class MicPermissionScreen extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 color: AppTheme.dynamicText(context),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),

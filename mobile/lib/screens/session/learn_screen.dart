@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
@@ -12,6 +13,8 @@ import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/voice_service.dart';
 import '../../widgets/voice_orb_painter.dart';
+import '../../widgets/app_page_route.dart';
+import '../permission/mic_permission_screen.dart';
 import '../session/result_screen.dart';
 
 enum VoiceState { idle, listening, thinking, speaking }
@@ -51,6 +54,8 @@ class _LearnScreenState extends State<LearnScreen>
   bool _isRecording = false;
   bool _permissionDenied = false;
   String _statusLabel = 'Tap and hold mic to speak';
+  DateTime? _recordingStartTime;
+  Timer? _maxRecordingTimer;
 
   // ── Transcript ─────────────────────────────────────────────────────────────
   final List<Map<String, String>> _messages = [];
@@ -150,6 +155,9 @@ class _LearnScreenState extends State<LearnScreen>
       final summary = widget.content?.summary ?? '';
       final keyPoints = widget.content?.keyPoints ?? <String>[];
       final topics = widget.content?.topics ?? <String>[];
+      final docLang = widget.content?.documentLanguage ?? 'en';
+      final respLang = widget.content?.responseLanguage ?? 'en';
+      final langName = widget.content?.languageDisplayName ?? 'English';
 
       final result = await _api.startSession(
         documentName: docName,
@@ -157,6 +165,9 @@ class _LearnScreenState extends State<LearnScreen>
         keyPoints: keyPoints,
         topics: topics,
         mode: widget.mode,
+        documentLanguage: docLang,
+        responseLanguage: respLang,
+        languageDisplayName: langName,
       );
 
       final sessionId = result['session_id'] as String;
@@ -217,10 +228,33 @@ class _LearnScreenState extends State<LearnScreen>
 
     final started = await _voice.startRecording();
     if (!started) {
-      print('[LEARN] Recording failed to start');
+      print('[LEARN] Recording failed to start — mic busy or permission denied');
       _micScaleController.forward();
+      setState(() {
+        _isRecording = false;
+        _voiceState = VoiceState.idle;
+        _statusLabel = _permissionDenied
+            ? 'Microphone permission needed'
+            : 'Microphone busy — please try again';
+      });
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted && _statusLabel.contains('Microphone')) {
+          setState(() => _statusLabel = 'Tap and hold mic to speak');
+        }
+      });
       return;
     }
+
+    _recordingStartTime = DateTime.now();
+
+    // Maximum recording duration of 30 seconds with automatic stop-and-send
+    _maxRecordingTimer?.cancel();
+    _maxRecordingTimer = Timer(const Duration(seconds: 30), () {
+      if (_isRecording && mounted) {
+        print('[LEARN] Maximum recording duration of 30 seconds reached — auto-stopping and sending');
+        _onMicTapUp();
+      }
+    });
 
     setState(() {
       _isRecording = true;
@@ -235,13 +269,35 @@ class _LearnScreenState extends State<LearnScreen>
   Future<void> _onMicTapUp() async {
     if (!_isRecording) return;
 
-    print('[LEARN] Mic released — stopping recording');
+    _maxRecordingTimer?.cancel();
+    _maxRecordingTimer = null;
+
+    final duration = _recordingStartTime != null
+        ? DateTime.now().difference(_recordingStartTime!)
+        : Duration.zero;
+
+    print('[LEARN] Mic released — duration: ${duration.inMilliseconds}ms');
 
     _micScaleController.forward();
-
     _ringsController.stop();
     _ringsController.reset();
     _rotationController.duration = const Duration(seconds: 8);
+
+    // Minimum recording duration of 800 milliseconds
+    if (duration.inMilliseconds < 800) {
+      print('[LEARN] Recording duration too short (${duration.inMilliseconds}ms < 800ms) — discarding');
+      await _voice.cancelRecording();
+      setState(() {
+        _isRecording = false;
+        _voiceState = VoiceState.idle;
+        _statusLabel = 'Hold for longer to speak';
+      });
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted && !_isRecording && !_isAiThinking && !_isSpeakingTTS) {
+        setState(() => _statusLabel = 'Tap and hold mic to speak');
+      }
+      return;
+    }
 
     setState(() {
       _isRecording = false;
@@ -253,36 +309,64 @@ class _LearnScreenState extends State<LearnScreen>
     final audioPath = await _voice.stopRecording();
 
     if (audioPath == null) {
-      print('[LEARN] No audio recorded');
+      print('[LEARN] No audio recorded or file was empty');
       setState(() {
         _isAiThinking = false;
         _voiceState = VoiceState.idle;
         _statusLabel = 'No audio detected — try again';
       });
       await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
+      if (mounted && !_isRecording && !_isAiThinking && !_isSpeakingTTS) {
         setState(() => _statusLabel = 'Tap and hold mic to speak');
       }
       return;
     }
 
-    final transcript = await _voice.transcribeAudio(audioPath);
+    final respLang = widget.content?.responseLanguage ?? 'en';
+    final result = await _voice.transcribeAudio(
+      audioPath,
+      sessionId: _sessionId ?? '',
+      language: respLang,
+    );
 
-    if (transcript == null || transcript.trim().isEmpty) {
-      print('[LEARN] Empty transcript');
+    if (!result.isSuccess || result.transcript.trim().isEmpty) {
+      print('[LEARN] STT failed: reason=${result.failureReason}, error=${result.errorMessage}');
+
+      String failureMsg;
+      switch (result.failureReason) {
+        case SttFailureReason.tooShort:
+          failureMsg = 'Hold for longer to speak';
+          break;
+        case SttFailureReason.microphoneBusy:
+          failureMsg = 'Microphone busy — please try again';
+          break;
+        case SttFailureReason.networkError:
+          failureMsg = 'Network error — please check connection';
+          break;
+        case SttFailureReason.noSpeechDetected:
+          failureMsg = 'No speech detected — try again';
+          break;
+        case SttFailureReason.serverError:
+          failureMsg = 'Transcription error — please try again';
+          break;
+        default:
+          failureMsg = 'Could not hear you — try again';
+      }
+
       setState(() {
         _isAiThinking = false;
         _voiceState = VoiceState.idle;
-        _statusLabel = 'Could not hear you — try again';
+        _statusLabel = failureMsg;
       });
       await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
+      if (mounted && !_isRecording && !_isAiThinking && !_isSpeakingTTS) {
         setState(() => _statusLabel = 'Tap and hold mic to speak');
       }
       return;
     }
 
-    print('[LEARN] Transcript: "$transcript"');
+    final transcript = result.transcript;
+    print('[LEARN] STT transcription successful: "$transcript"');
 
     setState(() {
       _messages.add({'role': 'user', 'content': transcript});
@@ -295,6 +379,8 @@ class _LearnScreenState extends State<LearnScreen>
 
   Future<void> _onMicCancel() async {
     if (!_isRecording) return;
+    _maxRecordingTimer?.cancel();
+    _maxRecordingTimer = null;
     print('[LEARN] Mic cancelled');
     _micScaleController.forward();
     _ringsController.stop();
@@ -306,7 +392,9 @@ class _LearnScreenState extends State<LearnScreen>
       _statusLabel = 'Cancelled';
     });
     await Future.delayed(const Duration(seconds: 1));
-    if (mounted) setState(() => _statusLabel = 'Tap and hold mic to speak');
+    if (mounted && !_isRecording && !_isAiThinking && !_isSpeakingTTS) {
+      setState(() => _statusLabel = 'Tap and hold mic to speak');
+    }
   }
 
   // ── SESSION INTERACTION FLOW ──────────────────────────────────────────────
@@ -428,11 +516,13 @@ class _LearnScreenState extends State<LearnScreen>
     });
     _rotationController.duration = const Duration(seconds: 6);
 
+    final respLang = widget.content?.responseLanguage ?? 'en';
     await _voice.speakText(
       spokenText,
       voice: ApiService.voiceId,
       speed: ApiService.voiceSpeed,
       sessionId: _sessionId ?? '',
+      language: respLang,
       onStart: () {
         if (mounted) {
           setState(() {
@@ -559,7 +649,7 @@ class _LearnScreenState extends State<LearnScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to add PDF: $e', style: GoogleFonts.poppins(fontSize: 13)),
+          content: Text('Failed to add PDF: $e', style: GoogleFonts.dmSans(fontSize: 13)),
           backgroundColor: AppTheme.error,
         ));
       }
@@ -573,6 +663,8 @@ class _LearnScreenState extends State<LearnScreen>
   // ── END SESSION ───────────────────────────────────────────────────────────
 
   Future<void> _endSession() async {
+    _maxRecordingTimer?.cancel();
+    _maxRecordingTimer = null;
     if (_isRecording) await _voice.cancelRecording();
     if (_isSpeakingTTS) await _voice.stopPlayback();
 
@@ -581,23 +673,23 @@ class _LearnScreenState extends State<LearnScreen>
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-        title: Text('Leave Session?',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        title: Text('Leave session?',
+            style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
         content: Text(
           'Do you want to end this study session? Your progress will be saved.',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
               fontSize: 14, color: AppTheme.secondaryText),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text('Stay',
-                style: GoogleFonts.poppins(color: AppTheme.primaryBlue)),
+                style: GoogleFonts.dmSans(color: AppTheme.primaryBlue)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text('End',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                     color: AppTheme.error, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -652,7 +744,7 @@ class _LearnScreenState extends State<LearnScreen>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
+        AppPageRoute(
           builder: (_) => ResultScreen(
             content: effectiveDoc,
             score: avgScore,
@@ -672,41 +764,23 @@ class _LearnScreenState extends State<LearnScreen>
     }
   }
 
-  // ── PERMISSION DIALOG ─────────────────────────────────────────────────────
+  // ── PERMISSION SCREEN ────────────────────────────────────────────────────
 
   void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-        title: Text('Microphone Access',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-        content: Text(
-          'Socratiq needs microphone access to hear your voice. '
-          'Please enable it in device Settings → Apps → Socratiq → Permissions.',
-          style: GoogleFonts.poppins(
-              fontSize: 14, color: AppTheme.secondaryText),
+    Navigator.push(
+      context,
+      AppPageRoute(
+        builder: (_) => MicPermissionScreen(
+          onGranted: () async {
+            Navigator.pop(context);
+            setState(() => _permissionDenied = false);
+            await _voice.requestMicPermission();
+          },
+          onDenied: () {
+            Navigator.pop(context);
+            setState(() => _permissionDenied = true);
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK',
-                style: GoogleFonts.poppins(color: AppTheme.primaryBlue)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _voice.requestMicPermission();
-              final granted = await _voice.hasMicPermission();
-              setState(() => _permissionDenied = !granted);
-            },
-            child: Text('Try Again',
-                style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryBlue)),
-          ),
-        ],
       ),
     );
   }
@@ -725,19 +799,26 @@ class _LearnScreenState extends State<LearnScreen>
     });
   }
 
-  Color get _orbGlowColor {
-    if (_isSpeakingTTS) return AppTheme.primaryBlue.withOpacity(0.65);
-    if (_isAiThinking) return AppTheme.lavenderAccent.withOpacity(0.5);
+  VoiceOrbState get _orbState {
+    if (_isSpeakingTTS) return VoiceOrbState.speaking;
+    if (_isAiThinking) return VoiceOrbState.thinking;
+    if (_isRecording) return VoiceOrbState.listening;
     switch (_voiceState) {
-      case VoiceState.idle: return AppTheme.primaryBlue.withOpacity(0.3);
-      case VoiceState.listening: return AppTheme.cyanAccent.withOpacity(0.6);
-      case VoiceState.thinking: return AppTheme.lavenderAccent.withOpacity(0.4);
-      case VoiceState.speaking: return AppTheme.primaryBlue.withOpacity(0.65);
+      case VoiceState.idle:
+        return VoiceOrbState.idle;
+      case VoiceState.listening:
+        return VoiceOrbState.listening;
+      case VoiceState.thinking:
+        return VoiceOrbState.thinking;
+      case VoiceState.speaking:
+        return VoiceOrbState.speaking;
     }
   }
 
   @override
   void dispose() {
+    _maxRecordingTimer?.cancel();
+    _maxRecordingTimer = null;
     _rotationController.dispose();
     _pulseController.dispose();
     _ringsController.dispose();
@@ -757,7 +838,7 @@ class _LearnScreenState extends State<LearnScreen>
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // ── Background Gradient ──
+          // ── Background Aurora Gradient ──
           Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
@@ -774,25 +855,59 @@ class _LearnScreenState extends State<LearnScreen>
             ),
           ),
 
-          // ── Background Ambient Orb Animation ──
-          Positioned.fill(
-            child: Center(
-              child: _buildOrbBackground(),
-            ),
-          ),
-
-          // ── Foreground Full-Screen Translucent Chat Layer ──
           SafeArea(
             child: Column(
               children: [
                 _buildTopBar(),
-                Expanded(child: _buildTranscript()),
-                _buildContextualChips(),
-                const SizedBox(height: 10),
-                _showTextInput
-                    ? _buildTextInput()
-                    : _buildVoiceControls(),
-                const SizedBox(height: 8),
+
+                if (_showTextInput) ...[
+                  // Full chat transcript when text input is active
+                  Expanded(child: _buildTranscript()),
+                  _buildContextualChips(),
+                  const SizedBox(height: 10),
+                  _buildTextInput(),
+                  const SizedBox(height: 8),
+                ] else ...[
+                  // ── Hero Voice Orb Centerpiece (~50% height) ──
+                  Expanded(
+                    flex: 5,
+                    child: Center(
+                      child: VoiceOrbWidget(
+                        state: _orbState,
+                        rotation: _rotation,
+                        pulse: _pulse,
+                        ringsAnim: _ringsAnim,
+                        size: 190,
+                        statusLabel: _statusLabel,
+                      ),
+                    ),
+                  ),
+
+                  // ── Compact Scrollable Transcript Box (~35% height) ──
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.28),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.14),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: _buildTranscript(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+                  _buildContextualChips(),
+                  const SizedBox(height: 10),
+                  _buildVoiceControls(),
+                  const SizedBox(height: 12),
+                ],
               ],
             ),
           ),
@@ -848,7 +963,7 @@ class _LearnScreenState extends State<LearnScreen>
               children: [
                 Text(
                   widget.mode[0].toUpperCase() + widget.mode.substring(1),
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.cyanAccent,
@@ -863,7 +978,7 @@ class _LearnScreenState extends State<LearnScreen>
                   constraints: const BoxConstraints(maxWidth: 120),
                   child: Text(
                     docTitle,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontSize: 12,
                       color: Colors.white,
                     ),
@@ -871,6 +986,19 @@ class _LearnScreenState extends State<LearnScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (widget.content != null && widget.content!.documentLanguage != 'en') ...[
+                  const SizedBox(width: 6),
+                  Text('•', style: TextStyle(color: Colors.white.withOpacity(0.4))),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.content!.documentLanguage == 'sa' ? 'हिंदी' : 'हिंदी',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.cyanAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -911,7 +1039,7 @@ class _LearnScreenState extends State<LearnScreen>
                   const SizedBox(width: 4),
                   Text(
                     '+ PDF',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -931,7 +1059,7 @@ class _LearnScreenState extends State<LearnScreen>
               ),
               child: Text(
                 '$_questionsCorrect/$_questionsAsked ✓',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -974,7 +1102,7 @@ class _LearnScreenState extends State<LearnScreen>
               ),
               child: Text(
                 'End',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.error,
@@ -1004,7 +1132,7 @@ class _LearnScreenState extends State<LearnScreen>
                 const SizedBox(height: 12),
                 Text(
                   'Starting your session...',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.7),
                   ),
@@ -1066,10 +1194,10 @@ class _LearnScreenState extends State<LearnScreen>
         ),
         child: Text(
           text,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontSize: 14,
             color: Colors.white.withOpacity(0.95),
-            height: 1.5,
+            height: 1.6,
           ),
         ),
       ),
@@ -1118,153 +1246,6 @@ class _LearnScreenState extends State<LearnScreen>
           ),
         ),
       ),
-    );
-  }
-
-  // ── BACKGROUND ORB ANIMATION ─────────────────────────────────────────────
-
-  Widget _buildOrbBackground() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        RepaintBoundary(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              if (_isRecording || _isSpeakingTTS)
-                RepaintBoundary(
-                  child: AnimatedBuilder(
-                    animation: _ringsAnim,
-                    builder: (_, __) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [1.4, 1.8, 2.2]
-                            .asMap()
-                            .entries
-                            .map((e) {
-                          final delay = e.key * 0.28;
-                          final rVal = _isRecording
-                              ? (_ringsController.value - delay)
-                                  .clamp(0.0, 1.0)
-                              : (_pulseController.value - delay)
-                                  .clamp(0.0, 1.0);
-                          final ringColor = _isRecording
-                              ? AppTheme.cyanAccent
-                              : AppTheme.primaryBlue;
-                          return Container(
-                            width: 220 * e.value,
-                            height: 220 * e.value,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: ringColor.withOpacity(
-                                    (1.0 - rVal) * 0.35),
-                                width: 1.5,
-                              ),
-                            ),
-                          );
-                          }).toList(),
-                      );
-                    },
-                  ),
-                ),
-
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 350),
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: _orbGlowColor,
-                      blurRadius: _isRecording || _isSpeakingTTS
-                          ? 90
-                          : 60,
-                      spreadRadius:
-                          _isRecording || _isSpeakingTTS ? 25 : 12,
-                    ),
-                  ],
-                ),
-              ),
-
-              RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: Listenable.merge(
-                      [_rotation, _pulse]),
-                  builder: (_, __) => Transform.scale(
-                    scale:
-                        (_isAiThinking || _isSpeakingTTS)
-                            ? _pulse.value
-                            : 1.0,
-                    child: CustomPaint(
-                      painter: WireframeOrbPainter(
-                        rotationAngle: _rotation.value,
-                        scale: 0.95,
-                      ),
-                      size: const Size(220, 220),
-                    ),
-                  ),
-                ),
-              ),
-
-              if (_isRecording)
-                Positioned(
-                  top: 28,
-                  right: 28,
-                  child: RepaintBoundary(
-                    child: AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (_, __) => Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: AppTheme.error.withOpacity(
-                              0.6 + _pulseController.value * 0.4),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.error.withOpacity(0.5),
-                              blurRadius: 10,
-                              spreadRadius: 3,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Container(
-            key: ValueKey(_statusLabel),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.35),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.18)),
-            ),
-            child: Text(
-              _statusLabel,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: _isRecording
-                    ? AppTheme.cyanAccent
-                    : Colors.white.withOpacity(0.75),
-                fontWeight: _isRecording
-                    ? FontWeight.w600
-                    : FontWeight.w400,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1317,7 +1298,7 @@ class _LearnScreenState extends State<LearnScreen>
               ),
               child: Text(
                 chip.$1,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   color: Colors.white
                       .withOpacity(busy ? 0.35 : 0.9),
@@ -1487,13 +1468,13 @@ class _LearnScreenState extends State<LearnScreen>
             Expanded(
               child: TextField(
                 controller: _inputController,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 14,
                   color: Colors.white,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Type your answer or question...',
-                  hintStyle: GoogleFonts.poppins(
+                  hintStyle: GoogleFonts.dmSans(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.4),
                   ),
@@ -1618,21 +1599,22 @@ class _MCQSheetState extends State<_MCQSheet> {
                   ),
                 ),
                 Text(
-                  'Quick Check',
-                  style: GoogleFonts.poppins(
+                  'Quick check',
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.cyanAccent,
+                    letterSpacing: 0.1,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   widget.mcq.question,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 15,
                     color: textCol,
-                    height: 1.4,
+                    height: 1.5,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1692,7 +1674,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                             alignment: Alignment.center,
                             child: Text(
                               ['A', 'B', 'C', 'D'][i],
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.dmSans(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
                                 color: sel
@@ -1705,7 +1687,7 @@ class _MCQSheetState extends State<_MCQSheet> {
                           Expanded(
                             child: Text(
                               widget.mcq.options[i],
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 14,
                                 fontWeight: sel
                                     ? FontWeight.w600
@@ -1745,10 +1727,10 @@ class _MCQSheetState extends State<_MCQSheet> {
                         Expanded(
                           child: Text(
                             widget.mcq.explanation,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.dmSans(
                               fontSize: 13,
                               color: AppTheme.secondaryText,
-                              height: 1.5,
+                              height: 1.6,
                             ),
                           ),
                         ),
@@ -1784,10 +1766,10 @@ class _MCQSheetState extends State<_MCQSheet> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        'Submit Answer',
-                        style: GoogleFonts.poppins(
+                        'Submit answer',
+                        style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 14,
                           color: _selected != null
                               ? Colors.white
                               : AppTheme.lightText,
@@ -1810,10 +1792,10 @@ class _MCQSheetState extends State<_MCQSheet> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        'Continue Learning →',
-                        style: GoogleFonts.poppins(
+                        'Continue learning',
+                        style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 14,
                           color: Colors.white,
                         ),
                       ),

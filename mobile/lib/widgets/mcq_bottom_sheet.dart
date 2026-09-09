@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../app_theme.dart';
@@ -57,11 +56,11 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
               // Question
               Text(
                 widget.mcq.question,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontSize: 15,
                   color: textCol,
-                  height: 1.4,
+                  height: 1.5,
                 ),
               ),
               const SizedBox(height: 16),
@@ -111,7 +110,7 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                           alignment: Alignment.center,
                           child: Text(
                             ['A', 'B', 'C', 'D'][i],
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.dmSans(
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                               color: isSelected ? Colors.white : secCol,
@@ -122,9 +121,9 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                         Expanded(
                           child: Text(
                             widget.mcq.options[i],
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.dmSans(
                               fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w400,
                               color: textCol,
                             ),
                           ),
@@ -148,10 +147,10 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
                   ),
                   child: Text(
                     widget.mcq.explanation,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontSize: 13,
                       color: secCol,
-                      height: 1.5,
+                      height: 1.6,
                     ),
                   ),
                 ),
@@ -159,13 +158,13 @@ class _MCQBottomSheetState extends State<MCQBottomSheet> {
               const SizedBox(height: 8),
               if (!_submitted)
                 AppTheme.gradientButton(
-                  label: 'Submit Answer',
+                  label: 'Submit answer',
                   width: double.infinity,
                   onTap: _selected == null ? () {} : () => setState(() => _submitted = true),
                 )
               else
                 AppTheme.gradientButton(
-                  label: 'Continue Learning',
+                  label: 'Continue learning',
                   width: double.infinity,
                   onTap: () {
                     Navigator.pop(context);

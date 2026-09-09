@@ -3,8 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
 import '../../services/api_service.dart';
-import '../../services/voice_service.dart';
-import 'learn_screen.dart';
 
 class DetailExplanationScreen extends StatefulWidget {
   final ContentModel? content;
@@ -17,21 +15,13 @@ class DetailExplanationScreen extends StatefulWidget {
 
 class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
   final _api = ApiService();
-  final _voice = VoiceService();
   bool _isLoading = true;
   String? _detailedExplanation;
-  bool _isPlayingAudio = false;
 
   @override
   void initState() {
     super.initState();
     _loadDetailedExplanation();
-  }
-
-  @override
-  void dispose() {
-    _voice.stopPlayback();
-    super.dispose();
   }
 
   Future<void> _loadDetailedExplanation() async {
@@ -44,7 +34,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
     }
 
     try {
-      // Start a temporary session to ask for an in-depth pedagogical breakdown
+      // Start a session to request a comprehensive pedagogical breakdown
       final session = await _api.startSession(
         documentName: effectiveContent.documentName,
         summary: effectiveContent.summary,
@@ -57,16 +47,24 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
       final response = await _api.interact(
         sessionId: sessionId,
         userInput:
-            'Please give me a complete, structured, and in-depth pedagogical explanation of all main concepts, principles, and key examples in this document. Break it into clear sections with simple analogies.',
+            'Provide an extensive, comprehensive, and detailed explanation of the entire document "${effectiveContent.documentName}".\n'
+            'Format with clear section headers like:\n'
+            '# 1. Executive Concept Overview\n'
+            '# 2. In-Depth Theoretical Breakdown\n'
+            '# 3. Step-by-Step Mechanisms & Real-World Analogies\n'
+            '# 4. Critical Formulas, Laws & Definitions\n'
+            '# 5. Exam Readiness & High-Yield Takeaways\n'
+            'Ensure every core topic is thoroughly explained so a student gets a complete, deep understanding without needing to ask questions.',
         interactionType: 'text',
       );
 
-      final explanation = response['tutor_response'] as String? ??
-          effectiveContent.summary;
+      final explanation = response['tutor_response'] as String? ?? '';
 
       if (mounted) {
         setState(() {
-          _detailedExplanation = explanation;
+          _detailedExplanation = explanation.trim().isNotEmpty
+              ? explanation
+              : _buildLocalFallback(effectiveContent);
           _isLoading = false;
         });
       }
@@ -74,7 +72,6 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
       print('[DETAIL_EXPLAIN] Error fetching deep explanation: $e');
       if (mounted) {
         setState(() {
-          // Graceful fallback using local document content
           _detailedExplanation = _buildLocalFallback(effectiveContent);
           _isLoading = false;
         });
@@ -84,30 +81,55 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
 
   String _buildLocalFallback(ContentModel content) {
     final buffer = StringBuffer();
-    buffer.writeln(content.summary);
-    if (content.keyPoints.isNotEmpty) {
-      buffer.writeln('\n\nCore Principles & Concepts:');
-      for (final kp in content.keyPoints) {
-        buffer.writeln('• $kp');
-      }
-    }
-    return buffer.toString();
-  }
+    buffer.writeln('# 1. Executive Concept Overview\n');
+    buffer.writeln(content.summary.isNotEmpty
+        ? content.summary
+        : 'This chapter provides foundational concepts, key mechanisms, and structured principles required for mastery of ${content.documentName.replaceAll('.pdf', '')}.');
 
-  Future<void> _toggleAudio() async {
-    if (_isPlayingAudio) {
-      await _voice.stopPlayback();
-      setState(() => _isPlayingAudio = false);
-    } else {
-      final text = _detailedExplanation ?? widget.content?.summary ?? '';
-      if (text.isEmpty) return;
-      setState(() => _isPlayingAudio = true);
-      try {
-        await _voice.speak(text);
-      } finally {
-        if (mounted) setState(() => _isPlayingAudio = false);
+    if (content.keyPoints.isNotEmpty) {
+      buffer.writeln('\n\n# 2. Core Principles & Frameworks\n');
+      buffer.writeln('The following concepts represent the essential foundations of this material:');
+      for (int i = 0; i < content.keyPoints.length; i++) {
+        buffer.writeln('\n• Concept ${i + 1}: ${content.keyPoints[i]}');
+        buffer.writeln('  Key Mechanism: Pay careful attention to how this principle interacts with surrounding context and problem solving.');
       }
     }
+
+    if (content.extractedText.isNotEmpty) {
+      buffer.writeln('\n\n# 3. Detailed Text Analysis & Breakdown\n');
+      final rawParagraphs = content.extractedText
+          .split(RegExp(r'\n{2,}|\r\n{2,}'))
+          .map((p) => p.trim())
+          .where((p) =>
+              p.length > 50 &&
+              !p.toLowerCase().contains('page ') &&
+              !p.toLowerCase().contains('copyright') &&
+              !p.toLowerCase().contains('all rights reserved'))
+          .take(5)
+          .toList();
+
+      if (rawParagraphs.isNotEmpty) {
+        for (int i = 0; i < rawParagraphs.length; i++) {
+          buffer.writeln('Module Section ${i + 1}:\n${rawParagraphs[i]}\n');
+        }
+      } else {
+        buffer.writeln(content.extractedText.length > 1000
+            ? '${content.extractedText.substring(0, 1000)}...'
+            : content.extractedText);
+      }
+    }
+
+    buffer.writeln('\n# 4. Critical Exam Tips & Definitions\n');
+    buffer.writeln('• Master the core terminology and definitions highlighted above.');
+    buffer.writeln('• Focus on cause-and-effect relationships between primary variables.');
+    buffer.writeln('• Review key vocabulary terms before taking the test.');
+
+    buffer.writeln('\n# 5. Study Checklist\n');
+    buffer.writeln('✔ Read and understand all core principles above.');
+    buffer.writeln('✔ Review quick summary cards in Revise mode.');
+    buffer.writeln('✔ Complete the practice test to verify mastery.');
+
+    return buffer.toString();
   }
 
   @override
@@ -133,6 +155,7 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
     }
 
     final docTitle = effectiveContent.documentName.replaceAll('.pdf', '');
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -142,250 +165,115 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
             _buildTopBar(context, docTitle),
             Expanded(
               child: _isLoading
-                  ? _buildLoadingState()
+                  ? _buildLoadingState(context)
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 90),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Topic badges
-                          if (effectiveContent.topics.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: effectiveContent.topics.take(4).map((t) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryBlue.withOpacity(0.08),
-                                    borderRadius:
-                                        BorderRadius.circular(AppTheme.radiusPill),
-                                    border: Border.all(
-                                        color: AppTheme.primaryBlue
-                                            .withOpacity(0.2)),
-                                  ),
-                                  child: Text(
-                                    t,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.primaryBlue,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-
-                          // Audio listen card
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.primaryBlue.withOpacity(0.08),
-                                  AppTheme.cyanAccent.withOpacity(0.08),
-                                ],
-                              ),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMedium),
-                              border: Border.all(
-                                  color: AppTheme.primaryBlue.withOpacity(0.15)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: const BoxDecoration(
-                                    gradient: AppTheme.primaryGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      _isPlayingAudio
-                                          ? Icons.stop_rounded
-                                          : Icons.volume_up_rounded,
-                                      color: Colors.white,
-                                    ),
-                                    onPressed: _toggleAudio,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _isPlayingAudio
-                                            ? 'Reading Explanation...'
-                                            : 'Listen to Audio Lesson',
-                                        style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14,
-                                          color: AppTheme.dynamicText(context),
-                                        ),
-                                      ),
-                                      Text(
-                                        'Powered by Neural AI Voice',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: AppTheme.dynamicSecondaryText(context),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Detailed Explanation Header
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.lavenderAccent.withOpacity(0.15),
-                                  borderRadius:
-                                      BorderRadius.circular(AppTheme.radiusXS),
-                                ),
-                                child: const Icon(
-                                  Icons.auto_stories_rounded,
-                                  color: AppTheme.lavenderAccent,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'In-Depth Breakdown',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.dynamicText(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Main Explanation Content Card
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppTheme.dynamicCard(context),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusLarge),
-                              boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
-                              border: Border.all(color: AppTheme.dynamicDivider(context)),
-                            ),
-                            child: Text(
-                              _detailedExplanation ??
-                                  effectiveContent.summary,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                height: 1.7,
-                                color: AppTheme.dynamicText(context),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Key Concepts Section
-                          if (effectiveContent.keyPoints.isNotEmpty) ...[
-                            Text(
-                              'Key Insights & Takeaways',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.dynamicText(context),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ...effectiveContent.keyPoints.map((point) {
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.dynamicCard(context),
-                                  borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium),
-                                  boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
-                                  border: Border.all(
-                                      color: AppTheme.dynamicDivider(context)),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Icons.check_circle_rounded,
-                                      color: AppTheme.success,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        point,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          height: 1.5,
-                                          color: AppTheme.dynamicSecondaryText(context),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
-                        ],
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                      child: _buildStructuredExplanation(
+                        _detailedExplanation ?? effectiveContent.summary,
+                        context,
+                        isDark,
                       ),
                     ),
             ),
           ],
         ),
       ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+    );
+  }
+
+  Widget _buildStructuredExplanation(
+      String rawText, BuildContext context, bool isDark) {
+    final sections = rawText.split(RegExp(r'\n(?=#\s+)'));
+
+    if (sections.length <= 1) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppTheme.dynamicCard(context),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          boxShadow: isDark ? null : AppTheme.cardShadow,
+          border: Border.all(color: AppTheme.dynamicDivider(context)),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: AppTheme.gradientButton(
-                label: 'Talk to Tutor About This',
-                gradient: AppTheme.lavenderGradient,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LearnScreen(
-                        content: effectiveContent,
-                        mode: 'learn',
+        child: Text(
+          rawText,
+          style: GoogleFonts.dmSans(
+            fontSize: 14,
+            height: 1.7,
+            color: AppTheme.dynamicText(context),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sections.map((section) {
+        final lines = section.trim().split('\n');
+        final header = lines.first.replaceAll(RegExp(r'^#+\s*'), '').trim();
+        final body = lines.skip(1).join('\n').trim();
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppTheme.dynamicCard(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            boxShadow: isDark ? null : AppTheme.cardShadow,
+            border: Border.all(color: AppTheme.dynamicDivider(context)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.menu_book_rounded,
+                      color: Colors.white,
+                      size: 17,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      header,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.dynamicText(context),
                       ),
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      ),
+              if (body.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Divider(
+                  height: 1,
+                  color: AppTheme.dynamicDivider(context).withOpacity(0.5),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  body,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: AppTheme.dynamicText(context),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -420,8 +308,8 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.dynamicText(context),
                   ),
@@ -429,11 +317,11 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'Detailed Explanation',
-                  style: GoogleFonts.poppins(
+                  'Detailed PDF explanation',
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     color: AppTheme.primaryBlue,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -444,14 +332,14 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildLoadingState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             child: CircularProgressIndicator(
               strokeWidth: 3,
               color: AppTheme.primaryBlue,
@@ -459,19 +347,19 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Analyzing and structuring explanation...',
-            style: GoogleFonts.poppins(
+            'Structuring detailed explanation...',
+            style: GoogleFonts.dmSans(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppTheme.navyText,
+              color: AppTheme.dynamicText(context),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Preparing concepts, theorems & examples',
-            style: GoogleFonts.poppins(
+            'Formatting concepts, mechanisms, and deep insights',
+            style: GoogleFonts.dmSans(
               fontSize: 12,
-              color: AppTheme.secondaryText,
+              color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
         ],

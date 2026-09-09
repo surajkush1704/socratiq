@@ -20,15 +20,17 @@ async def speech_to_text(
     audio: UploadFile = File(...),
     session_id: str = Form(default=''),
     uid: str = Form(default=''),
+    language: str = Form(default='en'),
 ):
     """
     Endpoint: POST /voice/stt
-    Accepts: multipart/form-data with 'audio' file
+    Accepts: multipart/form-data with 'audio' file and optional language
     Returns: JSON { transcript: string, duration_ms: int }
     """
     try:
         print(f'[STT ROUTER] Received audio: '
               f'filename={audio.filename}, '
+              f'language={language}, '
               f'content_type={audio.content_type}, '
               f'session={session_id[:8] if session_id else "none"}')
 
@@ -54,7 +56,11 @@ async def speech_to_text(
             )
 
         filename = audio.filename or 'audio.m4a'
-        transcript = await transcribe_audio(audio_bytes, filename)
+        transcript = await transcribe_audio(
+            audio_bytes,
+            filename,
+            language=language,
+        )
 
         if not transcript or not transcript.strip():
             return JSONResponse(content={
@@ -86,16 +92,15 @@ async def text_to_speech(
     voice: str = Form(default='aura-luna-en'),
     speed: str = Form(default='normal'),
     session_id: str = Form(default=''),
+    language: str = Form(default='en'),
 ):
     """
     Endpoint: POST /voice/tts
-    Accepts: multipart/form-data with text, voice, speed
+    Accepts: multipart/form-data with text, voice, speed, language
     Returns: audio/mpeg binary (mp3)
     """
     try:
-        print(f'[TTS ROUTER] Text: "{text[:60]}..." '
-              f'voice={voice} speed={speed} '
-              f'session={session_id[:8] if session_id else "none"}')
+        print(f'[TTS ROUTER] language={language}, text={text[:60]}...')
 
         if not text or not text.strip():
             raise HTTPException(
@@ -108,6 +113,7 @@ async def text_to_speech(
             text=text.strip(),
             voice=voice,
             speed=speed_float,
+            language=language,
         )
 
         print(f'[TTS ROUTER] Returning {len(audio_bytes)} bytes of audio')
@@ -120,6 +126,7 @@ async def text_to_speech(
                 'Content-Length': str(len(audio_bytes)),
                 'X-Voice': voice,
                 'X-Speed': speed,
+                'X-Language': language,
             }
         )
 
@@ -130,7 +137,7 @@ async def text_to_speech(
         print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail='Text-to-speech synthesis failed'
+            detail=f'TTS failed: {str(e)}'
         )
 
 

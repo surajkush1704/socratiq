@@ -103,19 +103,19 @@ class _SplashScreenState extends State<SplashScreen>
                   // ── APP NAME ──────────────────────────────────────────────
                   Text(
                     'SocratiQ',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 40,
+                    style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 38,
                       color: textCol,
-                      letterSpacing: -1,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Learn Smarter. Not Harder.',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontWeight: FontWeight.w400,
-                      fontSize: 16,
+                      fontSize: 15,
                       color: secCol,
                     ),
                   ),
@@ -211,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Text(
                       'Turn your notes into a personal tutor\n— just upload, ask and learn.',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w400,
                         fontSize: 14,
                         color: secCol,

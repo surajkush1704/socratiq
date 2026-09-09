@@ -10,10 +10,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Privacy Policy',
-            style: GoogleFonts.poppins(
+        title: Text('PRIVACY POLICY',
+            style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
-                fontSize: 18,
+                fontSize: 16,
+                letterSpacing: 1.2,
                 color: AppTheme.dynamicText(context))),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -80,7 +81,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
               fontSize: 16,
               color: AppTheme.navyText,
@@ -90,7 +91,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           if (content is String)
             Text(
               content,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                 fontSize: 14,
                 color: AppTheme.secondaryText,
                 height: 1.6,
@@ -114,7 +115,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Expanded(
                     child: Text(
                       item,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
                         color: AppTheme.secondaryText,
                         height: 1.5,

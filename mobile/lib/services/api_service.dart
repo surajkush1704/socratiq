@@ -4,11 +4,46 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   // Configurable via --dart-define=API_BASE_URL=https://api.yourdomain.com
-  // Defaults to 127.0.0.1:8000 for local development with adb reverse
-  static const String baseUrl = String.fromEnvironment(
+  // Defaults to 192.168.1.8:8000 for Wi-Fi LAN / physical Android devices
+  static String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000',
+    defaultValue: 'http://192.168.1.7:8000',
   );
+
+  // Candidate local backend addresses in priority order
+  static const List<String> candidateUrls = [
+    'http://192.168.1.7:8000',
+    'http://192.168.1.8:8000',
+    'http://10.0.2.2:8000',
+    'http://127.0.0.1:8000',
+  ];
+
+  static bool _isProbing = false;
+
+  /// Fast probe to discover reachable backend host if connection fails
+  static Future<String?> probeReachableHost() async {
+    if (_isProbing) return baseUrl;
+    _isProbing = true;
+    try {
+      for (final candidate in candidateUrls) {
+        try {
+          final probeDio = Dio(BaseOptions(
+            connectTimeout: const Duration(milliseconds: 1800),
+            receiveTimeout: const Duration(milliseconds: 1800),
+          ));
+          final res = await probeDio.get('$candidate/');
+          if (res.statusCode == 200) {
+            print('[API] Found reachable backend host: $candidate');
+            baseUrl = candidate;
+            return candidate;
+          }
+        } catch (_) {}
+      }
+    } finally {
+      _isProbing = false;
+    }
+    return null;
+  }
 
   // Voice preferences — updated from Settings screen
   // 'slow' | 'normal' | 'fast'
@@ -26,9 +61,32 @@ class ApiService {
       sendTimeout: const Duration(seconds: 60),
     ));
 
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (DioException err, ErrorInterceptorHandler handler) async {
+          if (err.type == DioExceptionType.connectionTimeout ||
+              err.type == DioExceptionType.connectionError) {
+            final workingHost = await probeReachableHost();
+            if (workingHost != null && workingHost != err.requestOptions.baseUrl) {
+              _dio.options.baseUrl = workingHost;
+              final newOptions = err.requestOptions;
+              newOptions.baseUrl = workingHost;
+              try {
+                final response = await _dio.fetch(newOptions);
+                return handler.resolve(response);
+              } catch (retryError) {
+                return handler.next(err);
+              }
+            }
+          }
+          return handler.next(err);
+        },
+      ),
+    );
+
     _dio.interceptors.add(LogInterceptor(
       requestBody: false,
-      responseBody: true,
+      responseBody: false,
       error: true,
       logPrint: (obj) => print('[DIO] $obj'),
     ));
@@ -73,10 +131,13 @@ class ApiService {
     required List<String> keyPoints,
     required List<String> topics,
     required String mode,
+    String documentLanguage = 'en',
+    String responseLanguage = 'en',
+    String languageDisplayName = 'English',
   }) async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
-      print('[API] Starting session: mode=$mode, doc=$documentName');
+      print('[API] Starting session: mode=$mode, doc=$documentName, docLang=$documentLanguage, respLang=$responseLanguage');
       final response = await _dio.post('/session/start', data: {
         'user_id': uid,
         'document_name': documentName,
@@ -84,6 +145,9 @@ class ApiService {
         'key_points': keyPoints,
         'topics': topics,
         'mode': mode,
+        'document_language': documentLanguage,
+        'response_language': responseLanguage,
+        'language_display_name': languageDisplayName,
       });
       print('[API] Session started: ${response.data}');
       return Map<String, dynamic>.from(response.data);

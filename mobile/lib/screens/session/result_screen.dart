@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
@@ -152,10 +153,11 @@ class _ResultScreenState extends State<ResultScreen>
         ),
         Text(
           'Results',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
-            fontSize: 24,
+            fontSize: 22,
             color: AppTheme.navyText,
+            letterSpacing: -0.3,
           ),
         ),
         const Spacer(),
@@ -163,7 +165,7 @@ class _ResultScreenState extends State<ResultScreen>
           constraints: const BoxConstraints(maxWidth: 160),
           child: Text(
             widget.content.documentName.replaceAll('.pdf', ''),
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               color: AppTheme.secondaryText,
             ),
@@ -200,16 +202,17 @@ class _ResultScreenState extends State<ResultScreen>
                     children: [
                       Text(
                         _scoreAnim.value.toStringAsFixed(1),
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w900,
+                        style: GoogleFonts.dmSans(
+                          fontWeight: FontWeight.w700,
                           fontSize: 48,
                           color: AppTheme.navyText,
-                          letterSpacing: -2,
+                          letterSpacing: -0.5,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                       Text(
                         'out of 10',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                           fontSize: 12,
                           color: AppTheme.secondaryText,
                         ),
@@ -230,9 +233,9 @@ class _ResultScreenState extends State<ResultScreen>
           ),
           child: Text(
             _performanceMessage,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 16,
+              fontSize: 15,
               color: _performanceColor,
             ),
           ),
@@ -240,7 +243,7 @@ class _ResultScreenState extends State<ResultScreen>
         const SizedBox(height: 8),
         Text(
           '${widget.correctAnswers} of ${widget.totalQuestions} correct',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.dmSans(
             fontSize: 14,
             color: AppTheme.secondaryText,
           ),
@@ -262,8 +265,8 @@ class _ResultScreenState extends State<ResultScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Question Breakdown',
-            style: GoogleFonts.poppins(
+            'Question breakdown',
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
               fontSize: 16,
               color: AppTheme.navyText,
@@ -292,7 +295,7 @@ class _ResultScreenState extends State<ResultScreen>
                     child: Icon(
                       correct
                           ? Icons.check_rounded
-                          : Icons.close_rounded,
+                      : Icons.close_rounded,
                       color: correct ? AppTheme.success : AppTheme.error,
                       size: 16,
                     ),
@@ -301,10 +304,10 @@ class _ResultScreenState extends State<ResultScreen>
                   Expanded(
                     child: Text(
                       q.question,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontSize: 13,
                         color: AppTheme.secondaryText,
-                        height: 1.4,
+                        height: 1.5,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -355,7 +358,7 @@ class _ResultScreenState extends State<ResultScreen>
               const SizedBox(width: 8),
               Text(
                 'Areas to revise',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
                   color: AppTheme.navyText,
@@ -376,7 +379,7 @@ class _ResultScreenState extends State<ResultScreen>
               ),
               child: Text(
                 t,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.warning,
@@ -393,7 +396,7 @@ class _ResultScreenState extends State<ResultScreen>
     return Column(
       children: [
         AppTheme.gradientButton(
-          label: 'Study Again',
+          label: 'Study again',
           width: double.infinity,
           onTap: () => Navigator.pop(context),
         ),
@@ -412,10 +415,10 @@ class _ResultScreenState extends State<ResultScreen>
             ),
             alignment: Alignment.center,
             child: Text(
-              'Go Home',
-              style: GoogleFonts.poppins(
+              'Go home',
+              style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w600,
-                fontSize: 15,
+                fontSize: 14,
                 color: AppTheme.navyText,
               ),
             ),

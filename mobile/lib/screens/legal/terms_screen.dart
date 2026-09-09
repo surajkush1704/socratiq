@@ -12,10 +12,11 @@ class TermsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Terms of Service',
-            style: GoogleFonts.poppins(
+        title: Text('TERMS OF SERVICE',
+            style: GoogleFonts.dmSans(
                 fontWeight: FontWeight.w700,
-                fontSize: 18,
+                fontSize: 16,
+                letterSpacing: 1.2,
                 color: textCol)),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -82,14 +83,14 @@ class TermsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                   color: textCol)),
           const SizedBox(height: 8),
           if (content is String)
             Text(content,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                     fontSize: 14,
                     color: secCol,
                     height: 1.6))
@@ -108,7 +109,7 @@ class TermsScreen extends StatelessWidget {
                   ),
                   Expanded(
                     child: Text(item,
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                             fontSize: 14,
                             color: secCol,
                             height: 1.5)),

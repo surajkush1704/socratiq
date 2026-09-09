@@ -26,12 +26,41 @@ RULES:
 - No markdown. No code blocks. Pure JSON only."""
 
 
+def _get_mcq_language_rule(
+    document_language: str,
+    response_language: str,
+    mode: str = 'learn',
+) -> str:
+    if document_language == 'sa':
+        # Sanskrit document — MCQs in Sanskrit always
+        # regardless of response language
+        return """
+LANGUAGE RULE (MANDATORY):
+- This is a Sanskrit document. Generate the question and ALL four options
+  in Sanskrit (Devanagari script) only.
+- The question must be grammatically correct Sanskrit.
+- The correct_index and explanation can be in Hindi to help the student.
+- Format: question and options in Sanskrit, explanation in Hindi.
+"""
+    elif document_language == 'hi':
+        return """
+LANGUAGE RULE (MANDATORY):
+- This is a Hindi document. Generate question and all options in Hindi.
+- explanation also in Hindi.
+- Do not use English.
+"""
+    else:
+        return ""  # English default
+
+
 async def generate_mcq(
     summary: str,
     key_points: List[str],
     current_topic: str,
     previously_asked: List[str] = None,
-    difficulty: str = 'medium'
+    difficulty: str = 'medium',
+    document_language: str = 'en',
+    response_language: str = 'en',
 ) -> Optional[dict]:
     key_points_text = '\n'.join(f'- {kp}' for kp in key_points[:8])
     asked_text = ''
@@ -51,11 +80,14 @@ DIFFICULTY: {difficulty}
 
 Generate ONE multiple choice question as JSON:"""
 
+    lang_rule = _get_mcq_language_rule(document_language, response_language)
+    full_system = (lang_rule + '\n\n' + MCQ_SYSTEM_PROMPT).strip()
+
     try:
         result = await call_with_fallback(
             agent_type='mcq',
             prompt=prompt,
-            system_prompt=MCQ_SYSTEM_PROMPT
+            system_prompt=full_system
         )
 
         print(f'[MCQ AGENT] Raw response: {result[:300]}')
@@ -123,6 +155,8 @@ async def generate_test_set(
     topics: List[str],
     count: int = 15,
     difficulty_spread: bool = True,
+    document_language: str = 'en',
+    response_language: str = 'en',
 ) -> List[dict]:
     """
     Generates a full set of MCQ questions for test mode.
@@ -161,12 +195,15 @@ Generate exactly {count} multiple choice questions:
 Cover all topics evenly.
 Return ONLY a JSON array of {count} objects matching the format."""
 
+    lang_rule = _get_mcq_language_rule(document_language, response_language, mode='test')
+    full_batch_system = (lang_rule + '\n\n' + BATCH_MCQ_SYSTEM_PROMPT).strip()
+
     try:
         print(f'[MCQ AGENT] Generating test set of {count} questions ({easy_count}E / {med_count}M / {hard_count}H)...')
         result = await call_with_fallback(
             agent_type='mcq',
             prompt=batch_prompt,
-            system_prompt=BATCH_MCQ_SYSTEM_PROMPT
+            system_prompt=full_batch_system
         )
 
         cleaned = result.strip()
@@ -226,6 +263,8 @@ Return ONLY a JSON array of {count} objects matching the format."""
                 current_topic=topic,
                 previously_asked=asked,
                 difficulty=diff,
+                document_language=document_language,
+                response_language=response_language,
             )
             if q:
                 break

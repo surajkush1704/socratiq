@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/content_model.dart';
-import '../../services/voice_service.dart';
-import 'test_screen.dart';
-import 'learn_screen.dart';
+import '../../services/api_service.dart';
+
+class TopicSummaryItem {
+  final String topicName;
+  final String summary;
+  final List<String> keyFacts;
+
+  const TopicSummaryItem({
+    required this.topicName,
+    required this.summary,
+    required this.keyFacts,
+  });
+}
 
 class ReviseSummaryScreen extends StatefulWidget {
   final ContentModel? content;
@@ -16,28 +26,172 @@ class ReviseSummaryScreen extends StatefulWidget {
 }
 
 class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
-  final _voice = VoiceService();
-  bool _isPlayingAudio = false;
+  final _api = ApiService();
+  bool _isLoading = true;
+  List<TopicSummaryItem> _topicSummaries = [];
 
   @override
-  void dispose() {
-    _voice.stopPlayback();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadTopicSummaries();
   }
 
-  Future<void> _toggleAudio(String text) async {
-    if (_isPlayingAudio) {
-      await _voice.stopPlayback();
-      setState(() => _isPlayingAudio = false);
-    } else {
-      if (text.isEmpty) return;
-      setState(() => _isPlayingAudio = true);
-      try {
-        await _voice.speak(text);
-      } finally {
-        if (mounted) setState(() => _isPlayingAudio = false);
+  Future<void> _loadTopicSummaries() async {
+    final effectiveContent = widget.content ??
+        (ModalRoute.of(context)?.settings.arguments as ContentModel?);
+
+    if (effectiveContent == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final session = await _api.startSession(
+        documentName: effectiveContent.documentName,
+        summary: effectiveContent.summary,
+        keyPoints: effectiveContent.keyPoints,
+        topics: effectiveContent.topics,
+        mode: 'revise',
+      );
+
+      final sessionId = session['session_id'] as String;
+      final topicList = effectiveContent.topics.isNotEmpty
+          ? effectiveContent.topics
+          : ['Core Fundamentals', 'Theoretical Framework', 'Applications & Analysis'];
+
+      final response = await _api.interact(
+        sessionId: sessionId,
+        userInput:
+            'Generate a clear, high-yield summary for EVERY topic in this document (${topicList.join(", ")}).\n'
+            'Format each topic strictly as:\n'
+            '### Topic: [Topic Name]\n'
+            '[Comprehensive 2-3 paragraph summary of this topic]\n'
+            'Key Takeaways:\n'
+            '• [Key takeaway 1]\n'
+            '• [Key takeaway 2]\n',
+        interactionType: 'text',
+      );
+
+      final tutorText = response['tutor_response'] as String? ?? '';
+      final parsed = _parseTopicSummaries(tutorText, topicList, effectiveContent);
+
+      if (mounted) {
+        setState(() {
+          _topicSummaries = parsed.isNotEmpty
+              ? parsed
+              : _buildLocalTopicSummaries(effectiveContent);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('[REVISE] Error fetching topic summaries: $e');
+      if (mounted) {
+        setState(() {
+          _topicSummaries = _buildLocalTopicSummaries(effectiveContent);
+          _isLoading = false;
+        });
       }
     }
+  }
+
+  List<TopicSummaryItem> _parseTopicSummaries(
+      String text, List<String> fallbackTopics, ContentModel content) {
+    final items = <TopicSummaryItem>[];
+    final sections = text.split(RegExp(r'###\s*Topic:\s*'));
+
+    for (final section in sections) {
+      final trimmed = section.trim();
+      if (trimmed.isEmpty) continue;
+
+      final lines = trimmed.split('\n');
+      final topicName = lines.first.trim();
+      final rest = lines.skip(1).join('\n').trim();
+
+      String summary = '';
+      final keyFacts = <String>[];
+
+      if (rest.contains('Key Takeaways:')) {
+        final parts = rest.split('Key Takeaways:');
+        summary = parts[0].trim();
+        final bulletLines = parts[1].split('\n');
+        for (final bl in bulletLines) {
+          final clean = bl.replaceAll(RegExp(r'^[•\-\*✔]\s*'), '').trim();
+          if (clean.isNotEmpty) keyFacts.add(clean);
+        }
+      } else {
+        summary = rest;
+      }
+
+      if (topicName.isNotEmpty && summary.isNotEmpty) {
+        items.add(TopicSummaryItem(
+          topicName: topicName,
+          summary: summary,
+          keyFacts: keyFacts,
+        ));
+      }
+    }
+
+    return items;
+  }
+
+  List<TopicSummaryItem> _buildLocalTopicSummaries(ContentModel content) {
+    final items = <TopicSummaryItem>[];
+    final topics = content.topics.isNotEmpty
+        ? content.topics
+        : ['Core Fundamentals', 'Key Principles', 'Important Applications'];
+
+    final keyPoints = content.keyPoints;
+    final text = content.extractedText;
+
+    for (int i = 0; i < topics.length; i++) {
+      final topic = topics[i];
+      final topicLower = topic.toLowerCase();
+
+      // Find matching key points for this topic
+      final matchingPoints = keyPoints.where((kp) {
+        final words = topicLower.split(RegExp(r'\s+'));
+        return words.any((w) => w.length > 3 && kp.toLowerCase().contains(w));
+      }).toList();
+
+      final relevantKeyFacts = matchingPoints.isNotEmpty
+          ? matchingPoints
+          : (keyPoints.isNotEmpty ? [keyPoints[i % keyPoints.length]] : <String>[]);
+
+      // Construct a tailored summary for this topic
+      final buffer = StringBuffer();
+      buffer.writeln(
+          'This topic covers essential foundations of $topic within ${content.documentName.replaceAll('.pdf', '')}.');
+
+      // Check extracted text for sentences related to this topic
+      if (text.isNotEmpty) {
+        final relevantSentences = text
+            .split(RegExp(r'\. |\n'))
+            .map((s) => s.trim())
+            .where((s) {
+              final words = topicLower.split(RegExp(r'\s+'));
+              return s.length > 30 &&
+                  words.any((w) => w.length > 3 && s.toLowerCase().contains(w));
+            })
+            .take(2)
+            .toList();
+
+        if (relevantSentences.isNotEmpty) {
+          buffer.writeln('\n${relevantSentences.join(". ")}.');
+        } else if (content.summary.isNotEmpty) {
+          buffer.writeln('\n${content.summary}');
+        }
+      } else if (content.summary.isNotEmpty) {
+        buffer.writeln('\n${content.summary}');
+      }
+
+      items.add(TopicSummaryItem(
+        topicName: topic,
+        summary: buffer.toString().trim(),
+        keyFacts: relevantKeyFacts,
+      ));
+    }
+
+    return items;
   }
 
   @override
@@ -72,293 +226,159 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
           children: [
             _buildTopBar(context, docTitle),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // High-yield Summary Hero
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: isDark
-                              ? [const Color(0xFF0E2A38), const Color(0xFF082032)]
-                              : [const Color(0xFFECFEFF), const Color(0xFFE0F2FE)],
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusLarge),
-                        border: Border.all(
-                            color: AppTheme.cyanAccent.withOpacity(0.35)),
-                        boxShadow: isDark ? null : AppTheme.cardShadow,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cyanAccent.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.bolt_rounded,
-                                  color: AppTheme.cyanAccent,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Simplified Executive Summary',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                  color: AppTheme.dynamicText(context),
-                                ),
-                              ),
-                              const Spacer(),
-                              GestureDetector(
-                                onTap: () => _toggleAudio(effectiveContent.summary),
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.dynamicCard(context),
-                                    shape: BoxShape.circle,
-                                    border: isDark
-                                        ? Border.all(color: AppTheme.darkCardBorder)
-                                        : null,
-                                    boxShadow: isDark ? null : AppTheme.cardShadow,
-                                  ),
-                                  child: Icon(
-                                    _isPlayingAudio
-                                        ? Icons.stop_rounded
-                                        : Icons.volume_up_rounded,
-                                    color: AppTheme.cyanAccent,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            effectiveContent.summary.isNotEmpty
-                                ? effectiveContent.summary
-                                : 'No summary generated yet.',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              height: 1.65,
-                              color: AppTheme.dynamicText(context),
-                            ),
-                          ),
-                        ],
-                      ),
+              child: _isLoading
+                  ? _buildLoadingState(context)
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                      itemCount: _topicSummaries.length,
+                      itemBuilder: (context, index) {
+                        final item = _topicSummaries[index];
+                        return _buildTopicSummaryCard(item, index + 1, isDark);
+                      },
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // Quick Flash Takeaways
-                    if (effectiveContent.keyPoints.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.lightbulb_outline_rounded,
-                            color: AppTheme.warning,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Must-Remember Key Facts',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.dynamicText(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      ...effectiveContent.keyPoints.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final point = entry.value;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.dynamicCard(context),
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMedium),
-                            boxShadow: isDark ? null : AppTheme.cardShadow,
-                            border: Border.all(
-                                color: isDark
-                                    ? AppTheme.darkCardBorder
-                                    : const Color(0xFFF1F5F9)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cyanAccent.withOpacity(0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '${index + 1}',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.cyanAccent,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  point,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    height: 1.55,
-                                    color: AppTheme.dynamicText(context),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Core Topics Cloud
-                    if (effectiveContent.topics.isNotEmpty) ...[
-                      Text(
-                        'Core Concepts Tested',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.navyText,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: effectiveContent.topics.map((topic) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusPill),
-                              border: Border.all(
-                                  color: AppTheme.cyanAccent.withOpacity(0.3)),
-                              boxShadow: AppTheme.cardShadow,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.check_rounded,
-                                  size: 14,
-                                  color: AppTheme.cyanAccent,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  topic,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.navyText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
             ),
           ],
         ),
       ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
-          ],
+    );
+  }
+
+  Widget _buildTopicSummaryCard(
+      TopicSummaryItem item, int topicNumber, bool isDark) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.dynamicCard(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
+        border: Border.all(
+          color: isDark
+              ? AppTheme.darkCardBorder
+              : AppTheme.cyanAccent.withOpacity(0.3),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: AppTheme.gradientButton(
-                label: 'Test Knowledge (15Q)',
-                gradient: AppTheme.cyanGradient,
-                onTap: () {
-                  final count =
-                      effectiveContent.extractedText.length > 5000 ? 20 : 15;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TestScreen(
-                        content: effectiveContent,
-                        questionCount: count,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LearnScreen(
-                      content: effectiveContent,
-                      mode: 'revise',
-                    ),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Topic header with badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkBackgroundAlt : AppTheme.backgroundAlt,
+                  gradient: AppTheme.cyanGradient,
                   borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                  border: Border.all(color: AppTheme.dynamicDivider(context)),
                 ),
-                child: const Icon(
-                  Icons.mic_rounded,
-                  color: AppTheme.primaryBlue,
-                  size: 22,
+                child: Text(
+                  'Topic $topicNumber',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.topicName,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.dynamicText(context),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Topic Summary Text
+          Text(
+            item.summary,
+            style: GoogleFonts.dmSans(
+              fontSize: 13,
+              height: 1.6,
+              color: AppTheme.dynamicText(context),
+            ),
+          ),
+
+          // Key Takeaways for this topic
+          if (item.keyFacts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF0C2430)
+                    : const Color(0xFFF0FDFA),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(
+                  color: AppTheme.cyanAccent.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.lightbulb_outline_rounded,
+                        color: AppTheme.cyanAccent,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Key takeaways',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.cyanAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...item.keyFacts.map((fact) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 5,
+                            margin: const EdgeInsets.only(top: 7, right: 8),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.cyanAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              fact,
+                              style: GoogleFonts.dmSans(
+                                fontSize: 12,
+                                height: 1.5,
+                                color: AppTheme.dynamicSecondaryText(context),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -394,8 +414,8 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.dynamicText(context),
                   ),
@@ -403,14 +423,49 @@ class _ReviseSummaryScreenState extends State<ReviseSummaryScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'Quick Revision Summary',
-                  style: GoogleFonts.poppins(
+                  'Topic-by-topic revision',
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     color: AppTheme.cyanAccent,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppTheme.cyanAccent,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Compiling topic summaries...',
+            style: GoogleFonts.dmSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.dynamicText(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Extracting core principles for each topic in this PDF',
+            style: GoogleFonts.dmSans(
+              fontSize: 12,
+              color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
         ],

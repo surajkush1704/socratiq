@@ -78,12 +78,21 @@ class ReasoningTracker:
 
 # ── REASONING RESPONSES ───────────────────────────────────────────────────────
 
+def _get_reasoning_language_rule(response_language: str) -> str:
+    if response_language == 'hi':
+        return """LANGUAGE RULE: Ask your guiding question in Hindi.
+If referencing Sanskrit text, quote it in Sanskrit then
+continue the question in Hindi.\n\n"""
+    return ""
+
+
 async def get_socratic_followup(
     question: str,
     user_wrong_answer: str,
     correct_answer: str,
     context_summary: str,
     attempt_number: int = 1,
+    response_language: str = 'en',
 ) -> str:
     """
     Returns a Socratic follow-up response based on how many
@@ -93,7 +102,7 @@ async def get_socratic_followup(
     attempt_number=2 → stronger hint + question
     attempt_number=3+ → reveal answer + encouragement
     """
-    print(f'[REASONING] Socratic followup, attempt #{attempt_number}')
+    print(f'[REASONING] Socratic followup, attempt #{attempt_number}, lang={response_language}')
     print(f'[REASONING] Q: {question[:50]}...')
     print(f'[REASONING] Wrong answer: {user_wrong_answer[:50]}')
 
@@ -102,6 +111,7 @@ async def get_socratic_followup(
             question=question,
             correct_answer=correct_answer,
             context_summary=context_summary,
+            response_language=response_language,
         )
     elif attempt_number == 2:
         return await _give_hint(
@@ -109,6 +119,7 @@ async def get_socratic_followup(
             user_wrong_answer=user_wrong_answer,
             correct_answer=correct_answer,
             context_summary=context_summary,
+            response_language=response_language,
         )
     else:
         return await _socratic_question(
@@ -116,6 +127,7 @@ async def get_socratic_followup(
             user_wrong_answer=user_wrong_answer,
             correct_answer=correct_answer,
             context_summary=context_summary,
+            response_language=response_language,
         )
 
 
@@ -124,6 +136,7 @@ async def _socratic_question(
     user_wrong_answer: str,
     correct_answer: str,
     context_summary: str,
+    response_language: str = 'en',
 ) -> str:
     """Attempt 1 — gentle guiding question, no hint"""
     prompt = f"""Context from study material:
@@ -136,16 +149,24 @@ Correct answer (do NOT reveal): {correct_answer}
 Write a gentle guiding question that leads the student
 toward the correct reasoning without giving the answer:"""
 
+    lang_rule = _get_reasoning_language_rule(response_language)
+    full_system = (lang_rule + SOCRATIC_SYSTEM).strip()
+
     try:
         result = await call_with_fallback(
             agent_type='reasoning',
             prompt=prompt,
-            system_prompt=SOCRATIC_SYSTEM,
+            system_prompt=full_system,
         )
         print(f'[REASONING] Socratic response: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Socratic question failed: {e}')
+        if response_language == 'hi':
+            return (
+                "आइए इसे कदम-दर-कदम समझें — "
+                "इस विषय के बारे में आपको क्या याद है?"
+            )
         return (
             "Let's think about this step by step — "
             "what do you remember from the material about this concept?"
@@ -157,6 +178,7 @@ async def _give_hint(
     user_wrong_answer: str,
     correct_answer: str,
     context_summary: str,
+    response_language: str = 'en',
 ) -> str:
     """Attempt 2 — more direct hint, closer to the answer"""
     prompt = f"""Context: {context_summary[:600]}
@@ -168,16 +190,24 @@ Correct answer (reveal partially, not fully): {correct_answer}
 Give a partial hint that narrows things down significantly,
 followed by one short question:"""
 
+    lang_rule = _get_reasoning_language_rule(response_language)
+    full_system = (lang_rule + HINT_SYSTEM).strip()
+
     try:
         result = await call_with_fallback(
             agent_type='reasoning',
             prompt=prompt,
-            system_prompt=HINT_SYSTEM,
+            system_prompt=full_system,
         )
         print(f'[REASONING] Hint response: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Hint failed: {e}')
+        if response_language == 'hi':
+            return (
+                "यहाँ एक संकेत है: इस विषय के मुख्य बिंदुओं के बीच संबंध के बारे में सोचें। "
+                "क्या इससे आपको मदद मिलती है?"
+            )
         return (
             f"Here is a clue: think about the relationship between "
             f"the key concepts in this topic. "
@@ -189,6 +219,7 @@ async def _reveal_answer(
     question: str,
     correct_answer: str,
     context_summary: str,
+    response_language: str = 'en',
 ) -> str:
     """Attempt 3+ — reveal the answer with explanation"""
     prompt = f"""Context: {context_summary[:600]}
@@ -199,16 +230,26 @@ Correct answer: {correct_answer}
 Explain why this is correct in 2-3 sentences, then add
 an encouraging closing statement:"""
 
+    lang_rule = _get_reasoning_language_rule(response_language)
+    full_system = (lang_rule + REVEAL_SYSTEM).strip()
+
     try:
         result = await call_with_fallback(
             agent_type='reasoning',
             prompt=prompt,
-            system_prompt=REVEAL_SYSTEM,
+            system_prompt=full_system,
         )
         print(f'[REASONING] Reveal response: {result[:50]}...')
         return result.strip()
     except Exception as e:
         print(f'[REASONING] Reveal failed: {e}')
+        if response_language == 'hi':
+            return (
+                f"सही उत्तर है: {correct_answer}। "
+                f"इस अवधारणा को पूरी तरह से समझने में समय लगता है — "
+                f"आपका प्रयास सराहनीय है। "
+                f"आइए आगे बढ़ें और इस पर बाद में दोबारा लौटेंगे।"
+            )
         return (
             f"The correct answer is: {correct_answer}. "
             f"This concept takes time to fully absorb — "

@@ -76,6 +76,8 @@ def create_or_update_user_profile(
     name: str = '',
     email: str = '',
     device_id: str = '',
+    username: str = None,
+    avatar_id: int = None,
 ) -> dict:
     from datetime import datetime, timezone
 
@@ -86,6 +88,8 @@ def create_or_update_user_profile(
         profile = {
             'uid': uid,
             'name': name,
+            'username': username or '',
+            'avatarId': avatar_id if avatar_id is not None else 0,
             'email': email,
             'deviceId': device_id,
             'createdAt': datetime.now(timezone.utc).isoformat(),
@@ -102,7 +106,7 @@ def create_or_update_user_profile(
         print(f'[FIRESTORE] Created user profile: {uid}')
         return profile
     else:
-        # Update last active + name/email if changed
+        # Update last active + name/email/username if changed
         updates = {
             'lastActive': datetime.now(timezone.utc).isoformat(),
         }
@@ -110,6 +114,10 @@ def create_or_update_user_profile(
             updates['name'] = name
         if email and email != existing.get('email'):
             updates['email'] = email
+        if username is not None:
+            updates['username'] = username
+        if avatar_id is not None:
+            updates['avatarId'] = avatar_id
         user_doc(uid).update(updates)
         print(f'[FIRESTORE] Updated user profile: {uid}')
         return {**existing, **updates}

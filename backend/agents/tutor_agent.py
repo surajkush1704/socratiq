@@ -23,6 +23,41 @@ TUTOR_CONTEXTUAL_PROMPTS = {
 }
 
 
+def _get_language_instruction(
+    document_language: str,
+    response_language: str,
+) -> str:
+    if document_language == 'sa' and response_language == 'hi':
+        return """
+LANGUAGE INSTRUCTIONS (MANDATORY):
+- The study document is written in Sanskrit (संस्कृत).
+- You MUST explain and respond in Hindi (हिंदी) only.
+- When quoting or referencing text from the document, quote it in 
+  Sanskrit as it appears, then explain it in Hindi.
+- Example: "यदा यदा हि धर्मस्य... — इसका अर्थ है जब-जब धर्म की हानि होती है..."
+- All your explanations, questions, and feedback must be in Hindi.
+- Do not respond in English under any circumstances.
+- Use simple, clear Hindi that a student can understand.
+"""
+    elif response_language == 'hi':
+        return """
+LANGUAGE INSTRUCTIONS (MANDATORY):
+- The study document is in Hindi (हिंदी).
+- You MUST respond entirely in Hindi.
+- All explanations, questions, and feedback in Hindi only.
+- Do not use English except for technical terms that have no Hindi equivalent.
+"""
+    elif response_language == 'en':
+        return ""  # no instruction needed — English is default
+    else:
+        return f"""
+LANGUAGE INSTRUCTIONS (MANDATORY):
+- Respond in the same language as the document ({response_language}).
+- All explanations and questions must be in that language.
+- Do not switch to English.
+"""
+
+
 async def get_tutor_response(
     mode: str,
     summary: str,
@@ -32,6 +67,8 @@ async def get_tutor_response(
     history: List[Dict[str, str]],
     user_input: str,
     contextual_type: str = None,
+    document_language: str = 'en',
+    response_language: str = 'en',
 ) -> str:
     key_points_text = '\n'.join(f'- {kp}' for kp in key_points[:8])
     topics_text = ', '.join(topics)
@@ -72,10 +109,15 @@ Student: {user_input}
 
 Respond as the Tutor:"""
 
+    lang_instruction = _get_language_instruction(
+        document_language, response_language
+    )
+    full_system = (lang_instruction + '\n\n' + TUTOR_SYSTEM_PROMPT).strip()
+
     return await call_with_fallback(
         agent_type='tutor',
         prompt=prompt,
-        system_prompt=TUTOR_SYSTEM_PROMPT
+        system_prompt=full_system
     )
 
 
@@ -84,6 +126,8 @@ async def get_opening_message(
     document_name: str,
     summary: str,
     topics: List[str],
+    document_language: str = 'en',
+    response_language: str = 'en',
 ) -> str:
     topics_text = ', '.join(topics[:5])
     mode_instruction = (
@@ -105,14 +149,18 @@ Topics: {topics_text}
 
 Write the opening message (under 60 words):"""
 
-    system = (
+    base_system = (
         'You are SocratiQ, an AI tutor. Write a warm, concise opening '
         'message for a tutoring session. Keep it under 60 words. '
         'Do not use markdown. Output plain conversational text only.'
     )
+    lang_instruction = _get_language_instruction(
+        document_language, response_language
+    )
+    full_system = (lang_instruction + '\n\n' + base_system).strip()
 
     return await call_with_fallback(
         agent_type='tutor',
         prompt=prompt,
-        system_prompt=system
+        system_prompt=full_system
     )

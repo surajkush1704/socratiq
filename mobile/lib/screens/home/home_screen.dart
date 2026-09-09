@@ -1,13 +1,16 @@
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../app_theme.dart';
+import '../../widgets/socratiq_avatar.dart';
 import '../../models/content_model.dart';
 import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/glass_nav.dart';
+import '../../widgets/app_page_route.dart';
 import '../session/mode_select.dart';
 import '../session/learn_screen.dart';
 import '../upload/upload_screen.dart';
@@ -25,17 +28,25 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic> _userStats = {};
   bool _isLoadingStats = true;
   String _greeting = 'Welcome back';
-
-  // Auth user
-  User? _user;
+  int _avatarId = 0;
 
   @override
   void initState() {
     super.initState();
-    _user = FirebaseAuth.instance.currentUser;
     _setGreeting();
     _loadLocalData();
     _loadCloudData();
+    _loadAvatarId();
+  }
+
+  Future<void> _loadAvatarId() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null || uid.isEmpty) return;
+      final profile = await SyncService.getProfile(uid);
+      final a = (profile['avatarId'] as num?)?.toInt() ?? 0;
+      if (mounted) setState(() => _avatarId = a);
+    } catch (_) {}
   }
 
   void _setGreeting() {
@@ -82,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 2) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+        AppPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
       );
     }
     if (index == 3) Navigator.pushReplacementNamed(context, '/dashboard');
@@ -93,9 +104,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      extendBody: true,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           SafeArea(
+            bottom: false,
             child: RefreshIndicator(
               color: AppTheme.primaryBlue,
               onRefresh: () async {
@@ -104,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 110),
+                padding: const EdgeInsets.only(bottom: 120),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -138,45 +152,31 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── 1. TOP BAR ────────────────────────────────────────────────────────────
 
   Widget _buildTopBar() {
+    // Always read fresh from FirebaseAuth so display name updates reflect immediately
+    final freshUser = FirebaseAuth.instance.currentUser;
     String name = 'there';
-    if (_user?.displayName != null && _user!.displayName!.trim().isNotEmpty) {
-      name = _user!.displayName!.trim().split(' ').first;
-    } else if (_user?.email != null && _user!.email!.trim().isNotEmpty) {
-      final prefix = _user!.email!.split('@').first;
+    if (freshUser?.displayName != null && freshUser!.displayName!.trim().isNotEmpty) {
+      name = freshUser.displayName!.trim().split(' ').first;
+    } else if (freshUser?.email != null && freshUser!.email!.trim().isNotEmpty) {
+      final prefix = freshUser.email!.split('@').first;
       name = prefix.isNotEmpty
           ? '${prefix[0].toUpperCase()}${prefix.substring(1)}'
           : 'Learner';
     }
-    final photoUrl = _user?.photoURL;
+    final photoUrl = freshUser?.photoURL;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pushReplacementNamed(context, '/settings'),
-            child: photoUrl != null
-                ? CircleAvatar(
-                    radius: 20,
-                    backgroundImage: NetworkImage(photoUrl),
-                  )
-                : Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'S',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
+            onTap: () => Navigator.pushNamed(context, '/profile'),
+            child: SocratiqAvatar(
+              size: 40,
+              avatarId: _avatarId,
+              photoUrl: photoUrl,
+              displayName: name,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -184,8 +184,18 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
+                  'HOME',
+                  style: GoogleFonts.dmSans(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    letterSpacing: 1.2,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
                   '$_greeting, $name',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
                     color: AppTheme.dynamicText(context),
@@ -193,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Text(
                   'Level up 🚀',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w400,
                     fontSize: 13,
                     color: AppTheme.dynamicSecondaryText(context),
@@ -255,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   'Your Personal AI Tutor',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                     color: AppTheme.cyanAccent,
@@ -264,16 +274,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 2),
                 Text(
                   'Ready to learn?',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w700,
-                    fontSize: 20,
+                    fontSize: 18,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Ask anything from your PDFs',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
                     color: Colors.white.withOpacity(0.75),
@@ -289,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          AppPageRoute(
                             builder: (_) => const LearnScreen(mode: 'learn'),
                           ),
                         );
@@ -302,8 +312,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           boxShadow: AppTheme.cardShadow,
                         ),
                         child: Text(
-                          'Talk to Tutor',
-                          style: GoogleFonts.poppins(
+                          'Talk to tutor',
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                             color: AppTheme.navyText,
@@ -315,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const UploadScreen()),
+                        AppPageRoute(builder: (_) => const UploadScreen()),
                       ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -325,7 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: Text(
                           'Upload PDF',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                             color: Colors.white,
@@ -361,185 +371,202 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasDocs = _documents.isNotEmpty;
     final lastDoc = hasDocs ? _documents.last : null;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Continue Learning Card (Flex 2)
-          Expanded(
-            flex: 2,
-            child: GestureDetector(
-              onTap: hasDocs && lastDoc != null
-                  ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ModeSelectScreen(content: lastDoc),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+          child: Text(
+            'QUICK ACTIONS',
+            style: GoogleFonts.dmSans(
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: AppTheme.primaryBlue,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Continue Learning Card (Flex 2)
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: hasDocs && lastDoc != null
+                      ? () => Navigator.push(
+                            context,
+                            AppPageRoute(
+                              builder: (_) => ModeSelectScreen(content: lastDoc),
+                            ),
+                          )
+                      : () => Navigator.push(
+                            context,
+                            AppPageRoute(builder: (_) => const UploadScreen()),
+                          ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dynamicCard(context),
+                      borderRadius: BorderRadius.circular(20),
+                      border: AppTheme.isDark(context)
+                          ? Border.all(color: AppTheme.darkCardBorder)
+                          : null,
+                      boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
+                    ),
+                    child: !hasDocs
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryBlue,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.upload_file_rounded, color: Colors.white, size: 20),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Start study',
+                                    style: GoogleFonts.dmSans(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                      color: AppTheme.cyanAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Upload a PDF to start learning',
+                                style: GoogleFonts.dmSans(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: AppTheme.dynamicText(context),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Upload now →',
+                                style: GoogleFonts.dmSans(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryBlue,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 20),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Continue',
+                                    style: GoogleFonts.dmSans(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                      color: AppTheme.cyanAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                lastDoc!.documentName,
+                                style: GoogleFonts.dmSans(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: AppTheme.dynamicText(context),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: const LinearProgressIndicator(
+                                  value: 0.4,
+                                  backgroundColor: Color(0xFFE2E8F0),
+                                  valueColor: AlwaysStoppedAnimation(AppTheme.primaryBlue),
+                                  minHeight: 4,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Resume →',
+                                style: GoogleFonts.dmSans(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              // Quick Action Quiz Card (Flex 1)
+              Expanded(
+                flex: 1,
+                child: GestureDetector(
+                  onTap: () => Navigator.pushReplacementNamed(context, '/library'),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: AppTheme.buttonShadow,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.quiz_rounded, color: Colors.white, size: 28),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Quiz me',
+                          style: GoogleFonts.dmSans(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
                         ),
-                      )
-                  : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const UploadScreen()),
-                      ),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.dynamicCard(context),
-                  borderRadius: BorderRadius.circular(20),
-                  border: AppTheme.isDark(context)
-                      ? Border.all(color: AppTheme.darkCardBorder)
-                      : null,
-                  boxShadow: AppTheme.isDark(context) ? null : AppTheme.cardShadow,
-                ),
-                child: !hasDocs
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(Icons.upload_file_rounded, color: Colors.white, size: 20),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Start Study',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11,
-                                  color: AppTheme.cyanAccent,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'Test yourself',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.75),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Upload a PDF to start learning',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppTheme.dynamicText(context),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Upload now →',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppTheme.primaryBlue,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 20),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Continue',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11,
-                                  color: AppTheme.cyanAccent,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            lastDoc!.documentName,
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppTheme.dynamicText(context),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: const LinearProgressIndicator(
-                              value: 0.4,
-                              backgroundColor: Color(0xFFE2E8F0),
-                              valueColor: AlwaysStoppedAnimation(AppTheme.primaryBlue),
-                              minHeight: 4,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Resume →',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppTheme.primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 10),
-
-          // Quick Action Quiz Card (Flex 1)
-          Expanded(
-            flex: 1,
-            child: GestureDetector(
-              onTap: () => Navigator.pushReplacementNamed(context, '/library'),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: AppTheme.buttonShadow,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.quiz_rounded, color: Colors.white, size: 28),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Quiz Me',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Test yourself',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.75),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -562,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       : AppTheme.backgroundAlt,
                   borderRadius: BorderRadius.circular(20),
                   border: AppTheme.isDark(context)
-                      ? Border.all(color: AppTheme.darkCardBorder)
+                       ? Border.all(color: AppTheme.darkCardBorder)
                       : null,
                 ),
                 child: Column(
@@ -572,7 +599,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 6),
                     Text(
                       'Library',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: AppTheme.dynamicText(context),
@@ -592,7 +619,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  AppPageRoute(
                     builder: (_) => const LearnScreen(mode: 'learn'),
                   ),
                 );
@@ -615,7 +642,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 6),
                     Text(
                       'Ask AI',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: AppTheme.dynamicText(context),
@@ -651,7 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 6),
                     Text(
                       'Progress',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: AppTheme.dynamicText(context),
@@ -679,18 +706,19 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Materials',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  color: AppTheme.dynamicText(context),
+                'RECENT ACTIVITY',
+                style: GoogleFonts.dmSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                  letterSpacing: 1.4,
+                  color: AppTheme.primaryBlue,
                 ),
               ),
               GestureDetector(
                 onTap: () => Navigator.pushReplacementNamed(context, '/library'),
                 child: Text(
                   'See all',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: AppTheme.primaryBlue,
@@ -706,7 +734,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(
                   child: Text(
                     'Upload your first PDF',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.dmSans(
                       fontSize: 14,
                       color: AppTheme.dynamicSecondaryText(context),
                     ),
@@ -732,7 +760,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     return GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        AppPageRoute(
                           builder: (_) => ModeSelectScreen(content: doc),
                         ),
                       ),
@@ -771,7 +799,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Text(
                                     doc.documentName.replaceAll('.pdf', ''),
-                                    style: GoogleFonts.poppins(
+                                    style: GoogleFonts.dmSans(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                       color: AppTheme.dynamicText(context),
@@ -782,7 +810,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     doc.topics.isNotEmpty ? doc.topics.first : 'Study Module',
-                                    style: GoogleFonts.poppins(
+                                    style: GoogleFonts.dmSans(
                                       fontSize: 11,
                                       color: AppTheme.dynamicSecondaryText(context),
                                     ),
@@ -792,7 +820,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     'Open →',
-                                    style: GoogleFonts.poppins(
+                                    style: GoogleFonts.dmSans(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 12,
                                       color: AppTheme.primaryBlue,
@@ -830,11 +858,12 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            'Your Stats',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-              color: AppTheme.dynamicText(context),
+            'YOUR STATS',
+            style: GoogleFonts.dmSans(
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: AppTheme.primaryBlue,
             ),
           ),
         ),
@@ -923,17 +952,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 4),
                     Text(
                       value,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w700,
                         fontSize: 18,
                         color: valueColor ?? AppTheme.primaryBlue,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
                 ),
                 Text(
                   label,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
                     color: AppTheme.dynamicSecondaryText(context),

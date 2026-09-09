@@ -31,6 +31,8 @@ async def start_session(request: SessionStartRequest) -> SessionStartResponse:
         document_name=request.document_name,
         summary=request.summary,
         topics=request.topics,
+        document_language=request.document_language,
+        response_language=request.response_language,
     )
 
     state = SessionState(
@@ -49,11 +51,14 @@ async def start_session(request: SessionStartRequest) -> SessionStartResponse:
         awaiting_answer=False,
         score_sum=0.0,
         created_at=datetime.utcnow().isoformat(),
+        document_language=request.document_language,
+        response_language=request.response_language,
+        language_display_name=request.language_display_name,
     )
 
     _sessions[session_id] = state
     _reasoning_trackers[session_id] = ReasoningTracker()
-    print(f'[ORCHESTRATOR] Session started: {session_id}, mode: {request.mode}')
+    print(f'[ORCHESTRATOR] Session started: {session_id}, mode: {request.mode}, doc_lang: {request.document_language}, resp_lang: {request.response_language}')
 
     return SessionStartResponse(
         session_id=session_id,
@@ -88,7 +93,7 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
 
     print(f'[ORCHESTRATOR] Session {request.session_id[:8]}, '
           f'mode={state.mode}, type={request.interaction_type}, '
-          f'topic={current_topic}')
+          f'topic={current_topic}, doc_lang={state.document_language}, resp_lang={state.response_language}')
 
     # ── MCQ REQUEST ────────────────────────────────────────────────────────────
     if request.interaction_type == 'request_mcq':
@@ -100,11 +105,16 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
             summary=state.summary,
             key_points=state.key_points,
             current_topic=current_topic,
-            previously_asked=asked
+            previously_asked=asked,
+            document_language=state.document_language,
+            response_language=state.response_language,
         )
 
         if not mcq_data:
-            ai_msg = 'Let me think of a good question for you. What part of this topic would you like to test?'
+            if state.response_language == 'hi':
+                ai_msg = 'मैं आपके लिए एक अच्छा प्रश्न सोचता हूँ। इस विषय के किस हिस्से की आप परीक्षा लेना चाहेंगे?'
+            else:
+                ai_msg = 'Let me think of a good question for you. What part of this topic would you like to test?'
             state.history.append({'role': 'ai', 'content': ai_msg})
             return InteractResponse(
                 session_id=request.session_id,
@@ -117,9 +127,15 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
         state.awaiting_answer = True
         state.questions_asked += 1
 
+        mcq_intro = (
+            'आपकी समझ की जाँच के लिए यहाँ एक प्रश्न है:'
+            if state.response_language == 'hi'
+            else 'Here is a question to check your understanding:'
+        )
+
         return InteractResponse(
             session_id=request.session_id,
-            ai_message='Here is a question to check your understanding:',
+            ai_message=mcq_intro,
             mcq=MCQData(
                 question=mcq_data['question'],
                 options=mcq_data['options'],
@@ -137,6 +153,7 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
             user_answer=request.user_input,
             context_summary=state.summary,
             is_mcq=False,
+            response_language=state.response_language,
         )
 
         score = eval_result['score']
@@ -162,6 +179,7 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
                 correct_answer=state.last_correct_answer or '',
                 context_summary=state.summary,
                 attempt_number=attempt_num,
+                response_language=state.response_language,
             )
 
             # Build full AI message
@@ -176,10 +194,16 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
                 # Advance topic
                 if state.current_topic_index < len(state.topics) - 1:
                     state.current_topic_index += 1
-                ai_message += (
-                    "\n\nLet's move forward and revisit this later. "
-                    "You'll find it makes more sense after studying the next topic."
-                )
+                if state.response_language == 'hi':
+                    ai_message += (
+                        "\n\nआइए आगे बढ़ें और इस पर बाद में दोबारा लौटेंगे। "
+                        "अगला विषय पढ़ने के बाद यह आपको बेहतर समझ आएगा।"
+                    )
+                else:
+                    ai_message += (
+                        "\n\nLet's move forward and revisit this later. "
+                        "You'll find it makes more sense after studying the next topic."
+                    )
 
             state.history.append({'role': 'ai', 'content': ai_message})
 
@@ -228,9 +252,12 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
                 current_topic=current_topic,
                 history=state.history,
                 user_input=request.user_input,
+                document_language=state.document_language,
+                response_language=state.response_language,
             )
 
-            feedback = eval_result.get('feedback', 'Well done!')
+            default_praise = 'बहुत बढ़िया!' if state.response_language == 'hi' else 'Well done!'
+            feedback = eval_result.get('feedback', default_praise)
 
             if deepening:
                 ai_message = f"{feedback}\n\n{deepening}"
@@ -271,6 +298,8 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
             history=state.history,
             user_input=request.user_input,
             contextual_type=contextual_type,
+            document_language=state.document_language,
+            response_language=state.response_language,
         )
         state.history.append({'role': 'ai', 'content': tutor_response})
 
@@ -289,6 +318,8 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
         current_topic=current_topic,
         history=state.history,
         user_input=request.user_input,
+        document_language=state.document_language,
+        response_language=state.response_language,
     )
     state.history.append({'role': 'ai', 'content': tutor_response})
 
@@ -300,7 +331,9 @@ async def handle_interaction(request: InteractRequest) -> InteractResponse:
             summary=state.summary,
             key_points=state.key_points,
             current_topic=current_topic,
-            previously_asked=asked
+            previously_asked=asked,
+            document_language=state.document_language,
+            response_language=state.response_language,
         )
         if mcq_data:
             state.last_question = mcq_data['question']

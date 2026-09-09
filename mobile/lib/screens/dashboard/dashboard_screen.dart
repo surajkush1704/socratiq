@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
@@ -5,6 +6,7 @@ import '../../app_theme.dart';
 import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/glass_nav.dart';
+import '../../widgets/app_page_route.dart';
 import '../session/learn_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -64,7 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (index == 2) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
+        AppPageRoute(builder: (_) => const LearnScreen(mode: 'learn')),
       );
     }
     if (index == 3) return;
@@ -81,15 +83,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            RefreshIndicator(
+      extendBody: true,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
               color: AppTheme.primaryBlue,
               onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -110,12 +115,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ),
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: GlassNav(currentIndex: 3, onTap: _onNavTap),
-            ),
-          ],
-        ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: GlassNav(currentIndex: 3, onTap: _onNavTap),
+          ),
+        ],
       ),
     );
   }
@@ -155,12 +162,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         Expanded(
           child: Text(
-            'Your Progress',
-            style: GoogleFonts.poppins(
+            'PROGRESS',
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
               fontSize: 26,
               color: AppTheme.dynamicText(context),
-              letterSpacing: -0.5,
+              letterSpacing: 1.2,
             ),
           ),
         ),
@@ -213,18 +220,19 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               Text(
                 '$streak',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 52,
+                style: GoogleFonts.dmSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 48,
                   color: Colors.white,
-                  letterSpacing: -2,
+                  letterSpacing: -0.5,
                   height: 1.0,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               Text(
                 'day streak',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
+                style: GoogleFonts.dmSans(
+                  fontSize: 14,
                   color: Colors.white.withOpacity(0.75),
                 ),
               ),
@@ -238,7 +246,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 streak == 0
                     ? 'Study today to start!'
                     : 'Keep it up! 🚀',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                   color: Colors.white,
@@ -247,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               const SizedBox(height: 4),
               Text(
                 'Best: $longest days',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   color: Colors.white.withOpacity(0.6),
                 ),
@@ -288,16 +296,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                 const SizedBox(height: 8),
                 Text(
                   '$sessions',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 32,
+                  style: GoogleFonts.dmSans(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 30,
                     color: AppTheme.dynamicText(context),
                     height: 1.0,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 Text(
                   'total sessions',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 12,
                     color: AppTheme.dynamicSecondaryText(context),
                   ),
@@ -305,7 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 const SizedBox(height: 8),
                 Text(
                   'Today: $todaySessions session${todaySessions != 1 ? 's' : ''}',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.dmSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primaryBlue,
@@ -339,15 +348,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         Text(
                           SyncService.formatDuration(totalTimeSec),
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.w700,
-                            fontSize: 18,
+                            fontSize: 16,
                             color: AppTheme.dynamicText(context),
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                         Text(
                           'total study time',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontSize: 11,
                             color: AppTheme.dynamicSecondaryText(context),
                           ),
@@ -377,15 +387,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         Text(
                           SyncService.formatDuration(todayTimeSec),
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.w700,
-                            fontSize: 18,
+                            fontSize: 16,
                             color: AppTheme.dynamicText(context),
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                         Text(
                           'studied today',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontSize: 11,
                             color: AppTheme.dynamicSecondaryText(context),
                           ),
@@ -434,11 +445,12 @@ class _DashboardScreenState extends State<DashboardScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'This Week',
-                style: GoogleFonts.poppins(
+                'THIS WEEK',
+                style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  color: AppTheme.dynamicText(context),
+                  fontSize: 11,
+                  letterSpacing: 1.4,
+                  color: AppTheme.primaryBlue,
                 ),
               ),
               Text(
@@ -446,7 +458,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   weeklyData.fold<int>(0, (sum, d) =>
                     sum + (d['totalTimeSec'] as int? ?? 0)),
                 )}',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.dmSans(
                   fontSize: 12,
                   color: AppTheme.dynamicSecondaryText(context),
                 ),
@@ -480,7 +492,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             if (timeSec > 0)
                               Text(
                                 SyncService.formatDuration(timeSec),
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 8,
                                   color: isToday
                                       ? AppTheme.primaryBlue
@@ -509,7 +521,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             const SizedBox(height: 6),
                             Text(
                               dayLabel,
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.dmSans(
                                 fontSize: 12,
                                 fontWeight: isToday
                                     ? FontWeight.w700
@@ -522,7 +534,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             if (sessions > 0)
                               Text(
                                 '$sessions',
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 9,
                                   color: AppTheme.cyanAccent,
                                   fontWeight: FontWeight.w600,
@@ -561,7 +573,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 12),
           Text(
             'No activity this week',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: AppTheme.dynamicText(context),
@@ -569,7 +581,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           Text(
             'Complete a session to see your chart',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               color: AppTheme.dynamicSecondaryText(context),
             ),
@@ -603,11 +615,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Performance',
-            style: GoogleFonts.poppins(
+            'PERFORMANCE',
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppTheme.dynamicText(context),
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: AppTheme.primaryBlue,
             ),
           ),
           const SizedBox(height: 16),
@@ -634,10 +647,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     Text(
                       '${accuracy.round()}%',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                         color: AppTheme.dynamicText(context),
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
@@ -670,14 +684,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         children: [
           Text(
             label,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               color: AppTheme.dynamicSecondaryText(context),
             ),
           ),
           Text(
             value,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppTheme.dynamicText(context),
@@ -711,17 +725,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Topic Mastery',
-            style: GoogleFonts.poppins(
+            'TOPIC MASTERY',
+            style: GoogleFonts.dmSans(
               fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppTheme.dynamicText(context),
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: AppTheme.primaryBlue,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Based on your session scores',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.dmSans(
               fontSize: 12,
               color: AppTheme.dynamicSecondaryText(context),
             ),
@@ -744,7 +759,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       Expanded(
                         child: Text(
                           topic,
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                             color: AppTheme.dynamicText(context),
@@ -757,7 +772,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         mastery > 0
                             ? '${(mastery * 100).round()}%'
                             : 'Not studied',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: mastery >= 0.7
@@ -804,11 +819,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recent Sessions',
-          style: GoogleFonts.poppins(
+          'SESSION HISTORY',
+          style: GoogleFonts.dmSans(
             fontWeight: FontWeight.w700,
-            fontSize: 16,
-            color: AppTheme.dynamicText(context),
+            fontSize: 11,
+            letterSpacing: 1.4,
+            color: AppTheme.primaryBlue,
           ),
         ),
         const SizedBox(height: 12),
@@ -866,7 +882,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     children: [
                       Text(
                         docName,
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           color: AppTheme.dynamicText(context),
@@ -878,7 +894,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         '${mode[0].toUpperCase()}${mode.substring(1)} · '
                         '${SyncService.formatDuration(durationSec)} · '
                         '$questionsAttempted questions',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.dmSans(
                           fontSize: 11,
                           color: AppTheme.secondaryText,
                         ),
@@ -904,7 +920,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                         child: Text(
                           '${score.toStringAsFixed(1)}/10',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.dmSans(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: score >= 7
@@ -912,13 +928,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 : score >= 5
                                     ? AppTheme.primaryBlue
                                     : AppTheme.warning,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ),
                     const SizedBox(height: 3),
                     Text(
                       SyncService.timeAgo(createdAt),
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.dmSans(
                         fontSize: 11,
                         color: AppTheme.lightText,
                       ),
