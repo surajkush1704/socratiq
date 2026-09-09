@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/google_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -209,240 +210,254 @@ class _LoginScreenState extends State<LoginScreen> {
     final borderColor = AppTheme.dynamicDivider(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Container(
-        decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isSignUp ? 'Create account' : 'Welcome back',
-                  style: GoogleFonts.dmSans(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 30,
-                    color: textCol,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                Text(
-                  _isSignUp
-                      ? 'Start learning smarter today'
-                      : 'to SocratiQ',
-                  style: GoogleFonts.dmSans(
-                    fontSize: 18,
-                    color: AppTheme.primaryBlue,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Your personal AI tutor awaits.',
-                  style: GoogleFonts.dmSans(
-                    fontSize: 14,
-                    color: secCol,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                // Glass card
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusLarge),
-                    border: Border.all(color: borderColor),
-                    boxShadow: isDark ? [] : AppTheme.glassShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      // Google button
-                      GestureDetector(
-                        onTap: (_loading || _isRateLimited) ? null : _handleGoogle,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkBackgroundAlt : Colors.white,
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusPill),
-                            boxShadow: isDark ? [] : AppTheme.cardShadow,
-                            border: Border.all(color: borderColor),
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
+      body: SizedBox.expand(
+        child: Container(
+          decoration: BoxDecoration(gradient: AppTheme.dynamicAuroraGradient(context)),
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: math.max(0.0, constraints.maxHeight - 56),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _isSignUp ? 'Create account' : 'Welcome',
+                          style: GoogleFonts.dmSans(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 30,
+                            color: textCol,
+                            letterSpacing: -0.5,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                        ),
+                        Text(
+                          _isSignUp
+                              ? 'Start learning smarter today'
+                              : 'to SocratiQ',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 18,
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Your personal AI tutor awaits.',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 14,
+                            color: secCol,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // Glass card
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusLarge),
+                            border: Border.all(color: borderColor),
+                            boxShadow: isDark ? [] : AppTheme.glassShadow,
+                          ),
+                          child: Column(
                             children: [
-                              Container(
-                                width: 20,
-                                height: 20,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.primaryBlue,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'G',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                              // Google button
+                              GestureDetector(
+                                onTap: (_loading || _isRateLimited) ? null : _handleGoogle,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 15, horizontal: 20),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppTheme.darkBackgroundAlt : Colors.white,
+                                    borderRadius:
+                                        BorderRadius.circular(AppTheme.radiusPill),
+                                    boxShadow: isDark ? [] : AppTheme.cardShadow,
+                                    border: Border.all(color: borderColor),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const GoogleLogo(size: 20),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'Continue with Google',
+                                        style: GoogleFonts.dmSans(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                          color: textCol,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Continue with Google',
-                                style: GoogleFonts.dmSans(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: textCol,
+                              const SizedBox(height: 18),
+                              // Divider
+                              Row(
+                                children: [
+                                  Expanded(child: Divider(color: borderColor)),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12),
+                                    child: Text(
+                                      'or',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 12,
+                                        color: secCol,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(child: Divider(color: borderColor)),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+                              // Email
+                              TextField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                style: GoogleFonts.dmSans(color: textCol),
+                                decoration: InputDecoration(
+                                  hintText: 'Email address',
+                                  prefixIcon: Icon(Icons.mail_outline_rounded,
+                                      color: secCol, size: 20),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Password
+                              TextField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                style: GoogleFonts.dmSans(color: textCol),
+                                decoration: InputDecoration(
+                                  hintText: 'Password',
+                                  prefixIcon: Icon(Icons.lock_outline_rounded,
+                                      color: secCol, size: 20),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: secCol,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => setState(() =>
+                                        _obscurePassword = !_obscurePassword),
+                                  ),
+                                ),
+                              ),
+                              // Captcha only on Sign Up
+                              if (_isSignUp) ...[
+                                const SizedBox(height: 12),
+                                _buildCaptchaWidget(
+                                    isDark, borderColor, textCol, secCol),
+                              ],
+                              if (!_isSignUp) ...[
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _showForgotPasswordSheet,
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'Forgot password?',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.primaryBlue,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 20),
+                              // Submit button
+                              GestureDetector(
+                                onTap: (_loading || _isRateLimited) ? null : _handleEmail,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  decoration: BoxDecoration(
+                                    gradient: (_loading || _isRateLimited)
+                                        ? LinearGradient(colors: [
+                                            AppTheme.primaryBlue.withValues(alpha: 0.5),
+                                            AppTheme.primaryBlue.withValues(alpha: 0.5),
+                                          ])
+                                        : AppTheme.primaryGradient,
+                                    borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusPill),
+                                    boxShadow: (_loading || _isRateLimited)
+                                        ? []
+                                        : AppTheme.buttonShadow,
+                                  ),
+                                  child: Center(
+                                    child: _loading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Text(
+                                            _isRateLimited
+                                                ? 'Wait ${_rateLimitCountdown}s'
+                                                : (_isSignUp
+                                                    ? 'Create account'
+                                                    : 'Login'),
+                                            style: GoogleFonts.dmSans(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Toggle sign-up
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _isSignUp = !_isSignUp;
+                                    if (_isSignUp) _generateCaptcha();
+                                  });
+                                },
+                                child: Text(
+                                  _isSignUp
+                                      ? 'Already have an account? Sign in'
+                                      : 'Don\'t have an account? Sign up',
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.primaryBlue,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 18),
-                      // Divider
-                      Row(
-                        children: [
-                          Expanded(child: Divider(color: borderColor)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12),
-                            child: Text(
-                              'or',
-                              style: GoogleFonts.dmSans(
-                                fontSize: 13,
-                                color: secCol,
-                              ),
-                            ),
-                          ),
-                          Expanded(child: Divider(color: borderColor)),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      // Email field
-                      _buildTextField(
-                        controller: _emailController,
-                        hint: 'Email address',
-                        icon: Icons.email_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      // Password field
-                      _buildTextField(
-                        controller: _passwordController,
-                        hint: 'Password',
-                        icon: Icons.lock_outline_rounded,
-                        obscure: _obscurePassword,
-                        suffix: GestureDetector(
-                          onTap: () => setState(
-                              () => _obscurePassword = !_obscurePassword),
-                          child: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: secCol,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-
-                      // Forgot password option in Sign In mode
-                      if (!_isSignUp) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: _showForgotPasswordSheet,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                'Forgot password?',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
-
-                      // Captcha Verification in Sign Up mode
-                      if (_isSignUp) ...[
-                        const SizedBox(height: 16),
-                        _buildCaptchaWidget(isDark, borderColor, textCol, secCol),
-                      ],
-
-                      const SizedBox(height: 20),
-                      // Main button
-                      GestureDetector(
-                        onTap: (_loading || _isRateLimited) ? null : _handleEmail,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            gradient: _isRateLimited ? null : AppTheme.primaryGradient,
-                            color: _isRateLimited ? (isDark ? AppTheme.darkDivider : AppTheme.divider) : null,
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusPill),
-                            boxShadow: _isRateLimited ? null : AppTheme.buttonShadow,
-                          ),
-                          alignment: Alignment.center,
-                          child: _loading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  _isRateLimited
-                                      ? 'Wait $_rateLimitCountdown seconds...'
-                                      : (_isSignUp ? 'Create account' : 'Login'),
-                                  style: GoogleFonts.dmSans(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: _isRateLimited
-                                        ? secCol
-                                        : Colors.white,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Toggle
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isSignUp = !_isSignUp;
-                            if (_isSignUp) _generateCaptcha();
-                          });
-                        },
-                        child: Text(
-                          _isSignUp
-                              ? 'Already have an account? Sign in'
-                              : 'Don\'t have an account? Sign up',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primaryBlue,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
