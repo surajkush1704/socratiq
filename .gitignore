@@ -37,6 +37,8 @@ mobile/ios/Flutter/Flutter.podspec
 mobile/ios/Runner.xcworkspace/xcshareddata/
 mobile/ios/Runner/GeneratedPluginRegistrant.*
 mobile/.packages
+*.apk
+
 
 # ── OS / Editor ───────────────────────────────────────────────────────────────
 .DS_Store
