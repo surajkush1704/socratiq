@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/sync_service.dart';
+import '../../services/update_service.dart';
 import '../../widgets/glass_nav.dart';
 import '../../widgets/socratiq_avatar.dart';
 import '../../widgets/app_page_route.dart';
@@ -236,6 +237,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (mounted) {
                             await _refreshProfile();
                           }
+                        },
+                      ),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        indent: 70,
+                        color: AppTheme.dynamicDivider(context),
+                      ),
+                      _buildMenuRow(
+                        icon: Icons.system_update_rounded,
+                        iconColor: AppTheme.cyanAccent,
+                        title: 'Check for Updates',
+                        subtitle: 'Current version: v1.0.3',
+                        onTap: () {
+                          UpdateService.checkForUpdates(context, silentIfUpToDate: false);
                         },
                       ),
                     ],

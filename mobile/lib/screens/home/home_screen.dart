@@ -9,6 +9,7 @@ import '../../widgets/socratiq_avatar.dart';
 import '../../models/content_model.dart';
 import '../../services/hive_service.dart';
 import '../../services/sync_service.dart';
+import '../../services/update_service.dart';
 import '../../widgets/glass_nav.dart';
 import '../../widgets/app_page_route.dart';
 import '../session/mode_select.dart';
@@ -37,6 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadLocalData();
     _loadCloudData();
     _loadAvatarId();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.checkForUpdates(context, silentIfUpToDate: true);
+    });
   }
 
   Future<void> _loadAvatarId() async {

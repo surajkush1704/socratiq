@@ -25,14 +25,15 @@ async def call_gemini(prompt: str, system_prompt: str) -> str:
         }
     }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f'{GEMINI_BASE_URL}/models/{GEMINI_MODEL}:generateContent?key={api_key}',
             json=payload
         )
         print(f'[GEMINI] Status: {response.status_code}')
         if response.status_code != 200:
-            print(f'[GEMINI] Error body: {response.text[:300]}')
+            safe_err = response.text[:300].encode('ascii', 'replace').decode('ascii')
+            print(f'[GEMINI] Error body: {safe_err}')
         response.raise_for_status()
         data = response.json()
         return data['candidates'][0]['content']['parts'][0]['text']

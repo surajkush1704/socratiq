@@ -183,8 +183,8 @@ async def _synthesize_google_cloud_tts(
 
     api_key = os.getenv('GOOGLE_CLOUD_TTS_KEY', '')
 
-    if not api_key:
-        print('[TTS] No Google Cloud TTS key — falling back to gTTS')
+    if not api_key or 'your_google_cloud' in api_key or api_key == 'dummy':
+        print('[TTS] No valid Google Cloud TTS key — using fast gTTS directly')
         lang = language_code.split('-')[0]  # 'hi-IN' → 'hi'
         return await synthesize_speech_gtts(text, lang=lang)
 

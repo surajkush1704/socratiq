@@ -6,13 +6,13 @@ You are talking directly to your student 1-on-1 like a supportive friend and men
 
 RULES:
 - Teach content ONLY from the provided study material.
-- Keep explanations concise, natural, and conversational — 2-3 sentences maximum.
-- Speak in warm, simple, human language. Avoid robotic textbook phrasing.
+- Provide thorough, clear, and engaging explanations (typically 1-2 rich, well-explained paragraphs). Never cut off after just a single short line.
+- Use concrete analogies, real-world examples, and step-by-step logic so the concept clicks.
+- Speak in warm, conversational, human language. Avoid dry textbook jargon.
 - CRITICAL: Do NOT use any markdown formatting (no asterisks **, no headers #, no bullet points -).
 - Output clean plain text only so it sounds natural when spoken aloud.
-- After explaining a concept, end with ONE friendly question to check understanding.
-- If the student is stuck, offer a gentle breakdown with encouragement.
-- Keep responses under 80 words."""
+- End with ONE thoughtful, open-ended question that encourages the student to reflect or test their understanding.
+- If the student is stuck, break the concept down patiently and encourage them."""
 
 TUTOR_CONTEXTUAL_PROMPTS = {
     'explain_differently': 'The student asked you to explain this differently. '
@@ -27,17 +27,15 @@ def _get_language_instruction(
     document_language: str,
     response_language: str,
 ) -> str:
-    if document_language == 'sa' and response_language == 'hi':
+    if document_language == 'sa' or response_language in ('sa', 'hi'):
         return """
-LANGUAGE INSTRUCTIONS (MANDATORY):
-- The study document is written in Sanskrit (संस्कृत).
-- You MUST explain and respond in Hindi (हिंदी) only.
-- When quoting or referencing text from the document, quote it in 
-  Sanskrit as it appears, then explain it in Hindi.
-- Example: "यदा यदा हि धर्मस्य... — इसका अर्थ है जब-जब धर्म की हानि होती है..."
-- All your explanations, questions, and feedback must be in Hindi.
-- Do not respond in English under any circumstances.
-- Use simple, clear Hindi that a student can understand.
+LANGUAGE INSTRUCTIONS (MANDATORY & STRICT):
+- The study material is in Sanskrit (संस्कृत) or Hindi (हिंदी).
+- You MUST explain and respond entirely in Hindi (हिंदी).
+- When citing original Sanskrit sutras, shlokas, or terms, quote the Sanskrit phrase directly, then explain its meaning, breakdown, and practical significance thoroughly in Hindi.
+- Example: "यदा यदा हि धर्मस्य... — इसका अर्थ है कि जब-जब धर्म की हानि होती है..."
+- Under NO circumstances respond in English. Do not use English words.
+- All explanations, analogies, questions, and feedback must be in pure, easy-to-understand Hindi.
 """
     elif response_language == 'hi':
         return """
@@ -83,11 +81,11 @@ async def get_tutor_response(
         contextual_note = f'\n\nSPECIAL INSTRUCTION: {TUTOR_CONTEXTUAL_PROMPTS[contextual_type]}'
 
     mode_instruction = (
-        'You are in LEARN mode. Explain the current concept clearly '
-        'in 2-3 sentences, then ask ONE question to check understanding.'
+        'You are in LEARN mode. Explain the current concept thoroughly and clearly '
+        'with intuitive analogies and examples, then ask ONE question to check understanding.'
         if mode == 'learn'
-        else 'You are in REVISE mode. Skip the explanation. '
-             'Ask a focused question about the current topic directly.'
+        else 'You are in REVISE mode. Provide a quick summary of the concept, '
+             'then ask a focused question to test the student.'
     )
 
     prompt = f"""STUDY MATERIAL SUMMARY:
@@ -147,11 +145,11 @@ Topics: {topics_text}
 
 {mode_instruction}
 
-Write the opening message (under 60 words):"""
+Write the opening message:"""
 
     base_system = (
-        'You are SocratiQ, an AI tutor. Write a warm, concise opening '
-        'message for a tutoring session. Keep it under 60 words. '
+        'You are SocratiQ, an AI tutor. Write a warm, engaging opening '
+        'message for a tutoring session introducing what you will explore together. '
         'Do not use markdown. Output plain conversational text only.'
     )
     lang_instruction = _get_language_instruction(

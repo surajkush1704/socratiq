@@ -56,6 +56,7 @@ class _LearnScreenState extends State<LearnScreen>
   String _statusLabel = 'Tap and hold mic to speak';
   DateTime? _recordingStartTime;
   Timer? _maxRecordingTimer;
+  Timer? _ttsWatchdogTimer;
 
   // ── Transcript ─────────────────────────────────────────────────────────────
   final List<Map<String, String>> _messages = [];
@@ -207,15 +208,20 @@ class _LearnScreenState extends State<LearnScreen>
   // ── VOICE RECORDING FLOW ──────────────────────────────────────────────────
 
   Future<void> _onMicTapDown() async {
-    if (_isAiThinking || _isSpeakingTTS || _sessionLoading) return;
+    if (_isAiThinking || _sessionLoading) return;
     if (_permissionDenied) {
       _showPermissionDialog();
       return;
     }
 
-    // Stop any ongoing TTS playback when user starts speaking
+    // Stop any ongoing TTS playback immediately when user taps mic to speak
     if (_isSpeakingTTS) {
-      await _voice.stopPlayback();
+      _ttsWatchdogTimer?.cancel();
+      try {
+        await _voice.stopPlayback();
+      } catch (e) {
+        print('[LEARN] Stop TTS error: $e');
+      }
       setState(() {
         _isSpeakingTTS = false;
         _voiceState = VoiceState.idle;
@@ -403,6 +409,18 @@ class _LearnScreenState extends State<LearnScreen>
     if (_isAiThinking) return;
     if (_sessionId == null && _sessionError == null) return;
 
+    // Stop TTS if user is interacting
+    if (_isSpeakingTTS) {
+      _ttsWatchdogTimer?.cancel();
+      try {
+        await _voice.stopPlayback();
+      } catch (_) {}
+      setState(() {
+        _isSpeakingTTS = false;
+        _voiceState = VoiceState.idle;
+      });
+    }
+
     if (type != 'request_mcq' &&
         (_messages.isEmpty || _messages.last['content'] != input)) {
       setState(() => _messages.add({'role': 'user', 'content': input}));
@@ -516,6 +534,20 @@ class _LearnScreenState extends State<LearnScreen>
     });
     _rotationController.duration = const Duration(seconds: 6);
 
+    _ttsWatchdogTimer?.cancel();
+    // Safety watchdog: reset speaking state after max 45 seconds if callback fails
+    _ttsWatchdogTimer = Timer(const Duration(seconds: 45), () {
+      if (mounted && _isSpeakingTTS) {
+        print('[LEARN] TTS watchdog expired — resetting speech state');
+        setState(() {
+          _isSpeakingTTS = false;
+          _voiceState = VoiceState.idle;
+          _statusLabel = 'Tap and hold mic to speak';
+        });
+        _rotationController.duration = const Duration(seconds: 8);
+      }
+    });
+
     final respLang = widget.content?.responseLanguage ?? 'en';
     await _voice.speakText(
       spokenText,
@@ -532,6 +564,7 @@ class _LearnScreenState extends State<LearnScreen>
         }
       },
       onComplete: () {
+        _ttsWatchdogTimer?.cancel();
         if (mounted) {
           setState(() {
             _isSpeakingTTS = false;
@@ -542,6 +575,7 @@ class _LearnScreenState extends State<LearnScreen>
         }
       },
       onError: () {
+        _ttsWatchdogTimer?.cancel();
         if (mounted) {
           setState(() {
             _isSpeakingTTS = false;
@@ -819,12 +853,15 @@ class _LearnScreenState extends State<LearnScreen>
   void dispose() {
     _maxRecordingTimer?.cancel();
     _maxRecordingTimer = null;
+    _ttsWatchdogTimer?.cancel();
+    _ttsWatchdogTimer = null;
     _rotationController.dispose();
     _pulseController.dispose();
     _ringsController.dispose();
     _micScaleController.dispose();
     _scrollController.dispose();
     _inputController.dispose();
+    _voice.stopPlayback();
     _voice.dispose();
     super.dispose();
   }

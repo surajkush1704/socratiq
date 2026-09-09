@@ -31,7 +31,7 @@ async def call_groq(
         'max_tokens': max_tokens
     }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f'{GROQ_BASE_URL}/chat/completions',
             headers=headers,
@@ -39,7 +39,8 @@ async def call_groq(
         )
         print(f'[GROQ] Status: {response.status_code}')
         if response.status_code != 200:
-            print(f'[GROQ] Error: {response.text[:300]}')
+            safe_err = response.text[:300].encode('ascii', 'replace').decode('ascii')
+            print(f'[GROQ] Error: {safe_err}')
         response.raise_for_status()
         data = response.json()
         return data['choices'][0]['message']['content']

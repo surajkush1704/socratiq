@@ -34,31 +34,52 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
     }
 
     try {
-      // Start a session to request a comprehensive pedagogical breakdown
+      final isIndic = effectiveContent.documentLanguage == 'sa' ||
+          effectiveContent.documentLanguage == 'hi' ||
+          effectiveContent.responseLanguage == 'hi';
+
+      // Start a session with correct document and response language
       final session = await _api.startSession(
         documentName: effectiveContent.documentName,
         summary: effectiveContent.summary,
         keyPoints: effectiveContent.keyPoints,
         topics: effectiveContent.topics,
         mode: 'learn',
+        documentLanguage: effectiveContent.documentLanguage,
+        responseLanguage: effectiveContent.documentLanguage == 'sa'
+            ? 'hi'
+            : effectiveContent.responseLanguage,
+        languageDisplayName: effectiveContent.languageDisplayName,
       );
 
       final sessionId = session['session_id'] as String;
-      final response = await _api.interact(
-        sessionId: sessionId,
-        userInput:
-            'Provide an extensive, comprehensive, and detailed explanation of the entire document "${effectiveContent.documentName}".\n'
+
+      final prompt = isIndic
+          ? 'कृपया "${effectiveContent.documentName}" के सभी मुख्य सूत्रों, सिद्धांतों और विषयों की एक अत्यंत विस्तृत, गहरी और स्पष्ट व्याख्या हिंदी भाषा में प्रस्तुत करें।\n'
+            'प्रत्येक मूल संस्कृत सूत्र या श्लोक को उद्धृत करते हुए उसका शब्दार्थ, भावार्थ और व्यावहारिक उदाहरण विस्तार से समझाएं।\n'
+            'निम्नलिखित शीर्षकों के साथ क्रमबद्ध व्याख्या दें:\n'
+            '# १. मूल अवधारणा एवं सारांश\n'
+            '# २. मुख्य सूत्रों व सिद्धांतों की गहन व्याख्या\n'
+            '# ३. व्यावहारिक उदाहरण व आंतरिक तंत्र\n'
+            '# ४. महत्वपूर्ण पारिभाषिक शब्दावली\n'
+            '# ५. परीक्षा उपयोगी मुख्य बिंदु\n'
+            'कृपया पूरी व्याख्या सरल, स्पष्ट और धाराप्रवाह हिंदी में ही दें।'
+          : 'Provide an extensive, comprehensive, and detailed explanation of the entire document "${effectiveContent.documentName}".\n'
             'Format with clear section headers like:\n'
             '# 1. Executive Concept Overview\n'
             '# 2. In-Depth Theoretical Breakdown\n'
             '# 3. Step-by-Step Mechanisms & Real-World Analogies\n'
             '# 4. Critical Formulas, Laws & Definitions\n'
             '# 5. Exam Readiness & High-Yield Takeaways\n'
-            'Ensure every core topic is thoroughly explained so a student gets a complete, deep understanding without needing to ask questions.',
+            'Ensure every core topic is thoroughly explained so a student gets a complete, deep understanding without needing to ask questions.';
+
+      final response = await _api.interact(
+        sessionId: sessionId,
+        userInput: prompt,
         interactionType: 'text',
       );
 
-      final explanation = response['tutor_response'] as String? ?? '';
+      final explanation = (response['ai_message'] ?? response['tutor_response']) as String? ?? '';
 
       if (mounted) {
         setState(() {
@@ -80,7 +101,57 @@ class _DetailExplanationScreenState extends State<DetailExplanationScreen> {
   }
 
   String _buildLocalFallback(ContentModel content) {
+    final isIndic = content.documentLanguage == 'sa' ||
+        content.documentLanguage == 'hi' ||
+        content.responseLanguage == 'hi';
+
     final buffer = StringBuffer();
+
+    if (isIndic) {
+      buffer.writeln('# १. मूल अवधारणा एवं विषय परिचय\n');
+      buffer.writeln(content.summary.isNotEmpty
+          ? content.summary
+          : 'यह अध्याय ${content.documentName.replaceAll('.pdf', '')} के मूलभूत सिद्धांतों, सूत्रों और दार्शनिक भावों को विस्तार से स्पष्ट करता है।');
+
+      if (content.keyPoints.isNotEmpty) {
+        buffer.writeln('\n\n# २. मुख्य सूत्र एवं सिद्धांत\n');
+        buffer.writeln('इस पाठ के अनिवार्य और आधारभूत सिद्धांत निम्नलिखित हैं:');
+        for (int i = 0; i < content.keyPoints.length; i++) {
+          buffer.writeln('\n• सिद्धांत ${i + 1}: ${content.keyPoints[i]}');
+          buffer.writeln('  विस्तृत व्याख्या: इस सूत्र का गहन अर्थ समझें तथा संदर्भ में इसके व्यावहारिक अनुप्रयोग का मनन करें।');
+        }
+      }
+
+      if (content.extractedText.isNotEmpty) {
+        buffer.writeln('\n\n# ३. मूल पाठ विश्लेषण एवं व्याख्या\n');
+        final rawParagraphs = content.extractedText
+            .split(RegExp(r'\n{2,}|\r\n{2,}'))
+            .map((p) => p.trim())
+            .where((p) =>
+                p.length > 30 &&
+                !p.toLowerCase().contains('page ') &&
+                !p.toLowerCase().contains('copyright'))
+            .take(6)
+            .toList();
+
+        if (rawParagraphs.isNotEmpty) {
+          for (int i = 0; i < rawParagraphs.length; i++) {
+            buffer.writeln('खंड ${i + 1}:\n${rawParagraphs[i]}\n');
+          }
+        } else {
+          buffer.writeln(content.extractedText.length > 1000
+              ? '${content.extractedText.substring(0, 1000)}...'
+              : content.extractedText);
+        }
+      }
+
+      buffer.writeln('\n# ४. महत्वपूर्ण परीक्षा बिंदु एवं सारांश\n');
+      buffer.writeln('• मूल संस्कृत शब्दावली और पारिभाषिक अर्थों का अभ्यास करें।');
+      buffer.writeln('• सूत्रों के परस्पर संबंध और दार्शनिक आधार को समझें।');
+      buffer.writeln('• स्व-परीक्षण द्वारा अपनी समझ की पुष्टि करें।');
+      return buffer.toString();
+    }
+
     buffer.writeln('# 1. Executive Concept Overview\n');
     buffer.writeln(content.summary.isNotEmpty
         ? content.summary

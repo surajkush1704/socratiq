@@ -71,12 +71,32 @@ async def start_session(request: SessionStartRequest) -> SessionStartResponse:
 async def handle_interaction(request: InteractRequest) -> InteractResponse:
     state = _sessions.get(request.session_id)
     if not state:
-        return InteractResponse(
+        print(f'[ORCHESTRATOR] Session {request.session_id[:8]} not found in memory — auto-recovering state...')
+        is_indic = any('\u0900' <= char <= '\u097F' for char in request.user_input)
+        doc_lang = 'sa' if is_indic else 'en'
+        resp_lang = 'hi' if is_indic else 'en'
+        state = SessionState(
             session_id=request.session_id,
-            ai_message='Session not found. Please start a new session.',
-            next_action='session_error',
-            session_complete=True,
+            user_id='auto_recovered_user',
+            document_name='Study Material',
+            summary='Foundational study concepts and lessons.',
+            key_points=[],
+            topics=['Core Concept'],
+            mode='learn',
+            current_topic_index=0,
+            interaction_count=0,
+            history=[],
+            questions_asked=0,
+            questions_correct=0,
+            awaiting_answer=False,
+            score_sum=0.0,
+            created_at=datetime.utcnow().isoformat(),
+            document_language=doc_lang,
+            response_language=resp_lang,
+            language_display_name='Sanskrit' if is_indic else 'English',
         )
+        _sessions[request.session_id] = state
+        _reasoning_trackers[request.session_id] = ReasoningTracker()
 
     # Add user message to history
     state.history.append({
